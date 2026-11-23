@@ -62,7 +62,7 @@ app.get("/tag/:key", async (c) => {
   if (section) {
     if (section.kind === "chapter") return c.body(await reader.chapterPage(ctx, section), 200, htmlHeaders);
     const { results } = await c.env.DB.prepare(
-      "SELECT * FROM results WHERE section_id = ? AND visibility = 'published' AND state = 'active' ORDER BY position, id",
+      "SELECT * FROM results WHERE section_id = ? AND visibility = 'published' AND state = 'active' AND listed = 1 ORDER BY position, id",
     ).bind(section.id).all<ResultRow>();
     const proofs = await proofsFor(c.env.DB, { sectionId: section.id }, false);
     return c.body(await reader.sectionPage(ctx, section, results, proofs), 200, htmlHeaders);

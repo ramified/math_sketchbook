@@ -84,9 +84,13 @@ cached in the database. Saving one result re-renders only that result. If the bo
 4. Optionally add **readable aliases** such as `dirichlet-orthogonality`. You can then write
    `\ref{dirichlet-orthogonality}` anywhere; on save it is replaced by `\ref{7KQX}`, and `/tag/dirichlet-orthogonality`
    redirects to the result.
-5. Use **Position** to move a result within its section, or **Section** to move it elsewhere. Numbers such as
+5. Untick **Listed in its section and numbered** for small background definitions (such as "Dirichlet character")
+   that readers should reach only by clicking the word. An unlisted result has no number and is not shown on its
+   section page or in the contents, but it keeps its own page and expands in place wherever it is linked.
+   Link to it with `\hyperref[alias]{the words}`.
+6. Use **Position** to move a result within its section, or **Section** to move it elsewhere. Numbers such as
    "Lemma 1.2.3" are recomputed automatically; tags and URLs never change.
-6. Press **Save & publish** (or Ctrl+S). Warnings, such as unknown references or LaTeX errors, appear under
+7. Press **Save & publish** (or Ctrl+S). Warnings, such as unknown references or LaTeX errors, appear under
    the preview and after saving.
 
 **History.** Each result has a *history* link. "Load into editor" fills the form with an old version, and nothing
@@ -103,6 +107,8 @@ are edited at `/edit/settings`.
   `description` with `\item` or `\item[(a)]`, `quote`, `center`, `\\`, `~`, ` `` '' `, `--`, `---`, `\S`, `\ldots`,
   `\url`, `\href`, `\footnote`, accents such as `\'e`. Unicode such as `é` or `ő` works too.
 - **References:** `\ref{TAG}` or `\ref{alias}` for a result, section or chapter. Several at once with `\ref{A,B}`.
+  `\hyperref[TAG or alias]{words}` links your own words instead of printing "Lemma 1.2.3"; math is allowed in the
+  words. A plain `\ref` to an unlisted result shows its title.
 - **Citations:** `\cite{key}` and `\cite[Thm.~3]{key}`, using `\bibitem{key}` entries on the Settings page.
 - **Macros:** the shared macro file (Settings) accepts `\newcommand`, `\renewcommand`, `\def` and
   `\DeclareMathOperator`. It applies to all math on the site.

@@ -6,13 +6,15 @@
 // \ref{TAG} is NOT turned into a final link here: it becomes a placeholder REF_OPEN + TAG + REF_CLOSE, which is
 // replaced by "Lemma 1.2.3" when the page is served (see numbering.ts). That way cached HTML never contains
 // numbers that could go stale when results are moved.
+// \hyperref[TAG]{text} links its own text instead: REF_OPEN + TAG + REF_SEP + rendered text + REF_CLOSE.
 
 import { parse } from "@unified-latex/unified-latex-util-parse";
 import katex from "katex";
 
 export const REF_OPEN = "";
 export const REF_CLOSE = "";
-const PUA_RE = /[-]/g;
+export const REF_SEP = "";
+const PUA_RE =/[-]/g;
 const REF_TARGET_RE = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,63}$/;
 
 export interface Warning {
@@ -234,6 +236,16 @@ class Renderer {
       }
       return [{ kind: "inline", html: parts.join(", ") }];
     }
+    if (name === "hyperref") {
+      const t = plainText(optArg(n)).trim();
+      const text = this.inline(mainArg(n));
+      if (!REF_TARGET_RE.test(t)) {
+        this.warn(n, t ? `Invalid reference target "${t}".` : "\\hyperref needs a target: \\hyperref[TAG]{text}.");
+        return [{ kind: "inline", html: text }];
+      }
+      if (!this.refs.includes(t)) this.refs.push(t);
+      return [{ kind: "inline", html: REF_OPEN + t + REF_SEP + text + REF_CLOSE }];
+    }
     if (name === "eqref") {
       this.warn(n, "\\eqref (equation labels) is not supported yet.");
       return [{ kind: "inline", html: "(?)" }];
@@ -406,8 +418,9 @@ export function findRefTargets(src: string): { target: string; start: number; en
   const found: { target: string; start: number; end: number }[] = [];
   const visit = (nodes: Node[] | undefined) => {
     for (const n of nodes ?? []) {
-      if (n.type === "macro" && REF_MACROS.has(n.content as string)) {
-        const arg = mainArg(n);
+      const isHyper = n.type === "macro" && n.content === "hyperref";
+      if (n.type === "macro" && (REF_MACROS.has(n.content as string) || isHyper)) {
+        const arg = isHyper ? optArg(n) : mainArg(n);
         const first = arg?.find((x) => x.position);
         const last = [...(arg ?? [])].reverse().find((x) => x.position);
         if (first?.position && last?.position) {

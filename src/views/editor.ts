@@ -34,7 +34,7 @@ export function dashboardPage(ctx: Ctx, user: User): string {
   <ol>${(ctx.book.sectionsOf.get(ch.id) ?? []).map(
     (s) => html`<li class="toc-section"><span class="num">${s.number}</span> ${raw(titleHtml(ctx, s.title))} <a class="edit-link" href="/edit/section/${s.tag}">edit</a>
     <ul class="toc-results">${(ctx.book.resultsOf.get(s.id) ?? []).map(
-      (r) => html`<li><a href="/edit/result/${r.tag}">${r.label}${r.title ? html` (${raw(titleHtml(ctx, r.title))})` : ""}</a> <code>${r.tag}</code>${r.hidden ? html` <em>(hidden)</em>` : ""}</li>`,
+      (r) => html`<li><a href="/edit/result/${r.tag}">${r.label}${r.title ? html` (${raw(titleHtml(ctx, r.title))})` : ""}</a> <code>${r.tag}</code>${r.hidden ? html` <em>(hidden)</em>` : ""}${r.listed ? "" : html` <em>(unlisted)</em>`}</li>`,
     )}</ul>
     <form class="inline-form" data-create="/api/edit/new-result">
       <input type="hidden" name="section_id" value="${s.id}">
@@ -105,8 +105,10 @@ ${jsonScript("sections-data", sections)}
     <label>Title <input name="title" value="${title}" placeholder="optional, LaTeX allowed"></label>
     <label>Section <select name="section_id" data-current="${r.section_id}">${options(sections.map((s) => ({ value: s.id, label: s.label })), r.section_id)}</select></label>
     <label>Position <select name="place_after" data-self="${r.id}"><option value="keep">(keep current position)</option></select></label>
+    <label class="span2 checkbox"><input type="checkbox" name="listed"${r.listed ? raw(" checked") : ""}> Listed in its section and numbered
+      <small>Untick for a small definition that readers reach only by clicking a link, e.g. <code>\\hyperref[TAG]{Dirichlet character}</code>.</small></label>
     <label class="span2">Readable aliases <input name="aliases" value="${aliases.join(", ")}" placeholder="e.g. dirichlet-orthogonality (comma separated)">
-      <small>Write <code>\\ref{alias}</code> anywhere; on save it is replaced by <code>\\ref{TAG}</code>.</small></label>
+      <small>Write <code>\\ref{alias}</code> anywhere; on save it is replaced by <code>\\ref{TAG}</code>. To link your own words, write <code>\\hyperref[alias]{words}</code>.</small></label>
   </div>
   ${texPair("statement_tex", statement, 8, "Statement")}
   <h2>Proofs</h2>

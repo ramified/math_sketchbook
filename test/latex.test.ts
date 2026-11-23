@@ -88,3 +88,20 @@ test("javascript urls are not linked", () => {
   assert.ok(!r.html.includes("javascript:"));
   assert.ok(r.html.includes('href="https://a.b"'));
 });
+
+test("\hyperref links its own text; aliases in it are rewritten", async () => {
+  const { fillRefs } = await import("../src/book.ts");
+  const r = renderTex(String.raw`a \hyperref[8JA9]{Dirichlet $\chi$} and \ref{8JC4}; \hyperref{x}`, macros);
+  assert.deepEqual(r.refs, ["8JA9", "8JC4"]);
+  assert.equal(r.warnings.length, 1); // \hyperref without a target
+  const entry = (tag: string, label: string, listed: boolean, refHtml?: string) =>
+    [tag, { tag, id: 1, kind: "result", number: "", label, title: "", parentId: 1, hidden: false, listed, refHtml }] as const;
+  const book = { chapters: [], sectionsOf: new Map(), resultsOf: new Map(), sectionById: new Map(),
+    byTag: new Map([entry("8JA9", "Definition", false, "Dirichlet character"), entry("8JC4", "Definition 1.1.3", true)]) } as never;
+  const out = fillRefs(r.html, book);
+  assert.match(out, /<a class="ref" href="\/tag\/8JA9" data-tag="8JA9">Dirichlet <span class="katex">/);
+  assert.match(out, /data-tag="8JC4">Definition 1\.1\.3<\/a>/);
+  // a plain \ref to an unlisted result shows its title
+  assert.match(fillRefs(renderTex(String.raw`\ref{8JA9}`, macros).html, book), />Dirichlet character<\/a>/);
+  assert.equal(rewriteRefTargets(String.raw`\hyperref[chi]{a} \ref{chi}`, (t) => (t === "chi" ? "8JA9" : null)), String.raw`\hyperref[8JA9]{a} \ref{8JA9}`);
+});

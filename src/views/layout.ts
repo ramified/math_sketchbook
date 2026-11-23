@@ -8,7 +8,7 @@ export interface LayoutOpts {
   description?: string;
 }
 
-const ASSET_VERSION = "2"; // bump when public/static files change, so browsers fetch the new ones
+const ASSET_VERSION = "3"; // bump when public/static files change, so browsers fetch the new ones
 
 export function layout(o: LayoutOpts): string {
   return "<!doctype html>\n" + html`<html lang="en">

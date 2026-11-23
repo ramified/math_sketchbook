@@ -1,6 +1,6 @@
 // Reading side: load the book structure, compute numbers, render cached HTML, fill in \ref placeholders.
 
-import { buildMacros, renderTex, renderInlineTex, escapeHtml, REF_OPEN, REF_CLOSE, type Macros } from "./latex.ts";
+import { buildMacros, renderTex, renderInlineTex, escapeHtml, REF_OPEN, REF_CLOSE, REF_SEP, type Macros } from "./latex.ts";
 import type { Env, ResultRow, ProofRow, SectionRow, ResultType } from "./types.ts";
 
 export interface Entry {
@@ -13,6 +13,8 @@ export interface Entry {
   type?: ResultType;
   parentId: number | null; // chapter id for sections, section id for results
   hidden: boolean; // draft or retired: not numbered on the public site
+  listed: boolean; // false: shown only through links (no number, not listed in its section on the public site)
+  refHtml?: string; // link text for a plain \ref to an unlisted result (its rendered title)
 }
 
 export interface Book {
@@ -33,7 +35,7 @@ export interface Ctx {
 }
 
 /** Bump when the LaTeX renderer changes: all cached HTML is then re-rendered on the next request. */
-export const RENDER_VERSION = "3";
+export const RENDER_VERSION = "4";
 
 export function typeName(t: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
@@ -58,10 +60,10 @@ export async function loadSettings(db: D1Database): Promise<Record<string, strin
 export async function loadBook(db: D1Database, includeHidden: boolean): Promise<Book> {
   const [secs, ress] = await db.batch([
     db.prepare("SELECT id, tag, parent_id, kind, title, position FROM sections ORDER BY position, id"),
-    db.prepare("SELECT id, tag, type, title, section_id, position, visibility, state FROM results ORDER BY position, id"),
+    db.prepare("SELECT id, tag, type, title, section_id, position, visibility, state, listed FROM results ORDER BY position, id"),
   ]);
   const sections = secs.results as Pick<SectionRow, "id" | "tag" | "parent_id" | "kind" | "title" | "position">[];
-  const results = ress.results as Pick<ResultRow, "id" | "tag" | "type" | "title" | "section_id" | "position" | "visibility" | "state">[];
+  const results = ress.results as Pick<ResultRow, "id" | "tag" | "type" | "title" | "section_id" | "position" | "visibility" | "state" | "listed">[];
 
   const book: Book = { chapters: [], sectionsOf: new Map(), resultsOf: new Map(), byTag: new Map(), sectionById: new Map() };
   let chapterNo = 0;
@@ -69,7 +71,7 @@ export async function loadBook(db: D1Database, includeHidden: boolean): Promise<
     chapterNo++;
     const chEntry: Entry = {
       tag: ch.tag, id: ch.id, kind: "chapter", number: String(chapterNo), label: `Chapter ${chapterNo}`,
-      title: ch.title, parentId: null, hidden: false,
+      title: ch.title, parentId: null, hidden: false, listed: true,
     };
     book.chapters.push(chEntry);
     book.byTag.set(ch.tag, chEntry);
@@ -79,7 +81,7 @@ export async function loadBook(db: D1Database, includeHidden: boolean): Promise<
     for (const s of sections.filter((x) => x.kind === "section" && x.parent_id === ch.id)) {
       secNo++;
       const num = `${chapterNo}.${secNo}`;
-      const e: Entry = { tag: s.tag, id: s.id, kind: "section", number: num, label: `Section ${num}`, title: s.title, parentId: ch.id, hidden: false };
+      const e: Entry = { tag: s.tag, id: s.id, kind: "section", number: num, label: `Section ${num}`, title: s.title, parentId: ch.id, hidden: false, listed: true };
       subs.push(e);
       book.byTag.set(s.tag, e);
       book.sectionById.set(s.id, e);
@@ -88,12 +90,14 @@ export async function loadBook(db: D1Database, includeHidden: boolean): Promise<
       for (const r of results.filter((x) => x.section_id === s.id)) {
         const hidden = r.visibility !== "published" || r.state !== "active";
         if (hidden && !includeHidden) continue;
-        const n = hidden ? `${num}.?` : `${num}.${++k}`;
+        const listed = r.listed !== 0;
+        const n = !listed ? "" : hidden ? `${num}.?` : `${num}.${++k}`;
         const re: Entry = {
-          tag: r.tag, id: r.id, kind: "result", number: n, label: `${typeName(r.type)} ${n}`, title: r.title,
-          type: r.type, parentId: s.id, hidden,
+          tag: r.tag, id: r.id, kind: "result", number: n, label: n ? `${typeName(r.type)} ${n}` : typeName(r.type),
+          title: r.title, type: r.type, parentId: s.id, hidden, listed,
         };
-        rs.push(re);
+        // Unlisted results stay reachable by tag (links, knowls, their own page) but are only listed in the editor.
+        if (listed || includeHidden) rs.push(re);
         book.byTag.set(r.tag, re);
       }
       book.resultsOf.set(s.id, rs);
@@ -119,23 +123,30 @@ export async function loadCtx(env: Env, includeHidden: boolean): Promise<Ctx> {
   }
   const { macros, error } = macrosFor(settings.macros ?? "");
   const book = await loadBook(db, includeHidden);
-  return { env, db, settings, macros, macroError: error, book };
+  const ctx: Ctx = { env, db, settings, macros, macroError: error, book };
+  for (const e of book.byTag.values()) {
+    if (!e.listed) e.refHtml = e.title ? titleHtml(ctx, e.title) : escapeHtml(e.label);
+  }
+  return ctx;
 }
 
-/** Replace \ref placeholders by links labelled with the current numbers. */
+// OPEN tag [SEP text] CLOSE; the text (from \hyperref) is already rendered HTML.
+const REF_PLACEHOLDER = new RegExp(`${REF_OPEN}([^${REF_SEP}${REF_CLOSE}]*)(?:${REF_SEP}([^${REF_CLOSE}]*))?${REF_CLOSE}`, "g");
+
+/** Replace \ref placeholders by links labelled with the current numbers (or the \hyperref text). */
 export function fillRefs(cached: string, book: Book): string {
-  return cached.replace(new RegExp(`${REF_OPEN}([^${REF_CLOSE}]*)${REF_CLOSE}`, "g"), (_, tag: string) => {
+  return cached.replace(REF_PLACEHOLDER, (_, tag: string, text: string | undefined) => {
     const e = book.byTag.get(tag);
     const t = escapeHtml(tag);
-    if (!e) return `<span class="ref-broken" title="Unknown reference ${t}">??${t}</span>`;
-    return `<a class="ref" href="/tag/${t}" data-tag="${t}">${escapeHtml(e.label)}</a>`;
+    if (!e) return `<span class="ref-broken" title="Unknown reference ${t}">${text ?? `??${t}`}</span>`;
+    return `<a class="ref" href="/tag/${t}" data-tag="${t}">${text ?? e.refHtml ?? escapeHtml(e.label)}</a>`;
   });
 }
 
 /** Like fillRefs but plain text (for titles, which are often inside links already). */
 export function labelRefs(cached: string, book: Book): string {
-  return cached.replace(new RegExp(`${REF_OPEN}([^${REF_CLOSE}]*)${REF_CLOSE}`, "g"), (_, tag: string) =>
-    escapeHtml(book.byTag.get(tag)?.label ?? `??${tag}`),
+  return cached.replace(REF_PLACEHOLDER, (_, tag: string, text: string | undefined) =>
+    text ?? escapeHtml(book.byTag.get(tag)?.label ?? `??${tag}`),
   );
 }
 

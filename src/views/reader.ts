@@ -124,7 +124,7 @@ export async function resultPage(
           return d ? html`<li><a class="ref" href="/tag/${t}" data-tag="${t}">${d.label}</a>${d.title ? html` (${raw(titleHtml(ctx, d.title))})` : ""}</li>` : html`<li class="ref-broken">??${t}</li>`;
         })}</ul>`
       : html`<p class="muted">None.</p>`;
-  return page(ctx, e.label, html`${breadcrumb(ctx, e)}
+  return page(ctx, e.listed || !e.title ? e.label : `${e.label}: ${e.title}`, html`${breadcrumb(ctx, e)}
 ${await resultBlock(ctx, r, proofs, { proofsCollapsed: false })}
 <div class="result-meta">
   <p>Permanent link: <code>/tag/${r.tag}</code>${aliases.length ? html` · also <code>${aliases.join(", ")}</code>` : ""}

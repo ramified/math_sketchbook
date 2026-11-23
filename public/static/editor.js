@@ -111,6 +111,8 @@
     }
     data.type = val("type");
     data.section_id = Number(val("section_id"));
+    const listedBox = form.querySelector('[name="listed"]');
+    if (listedBox) data.listed = listedBox.checked;
     data.statement_tex = val("statement_tex");
     data.aliases = (val("aliases") || "").split(",").map((s) => s.trim()).filter(Boolean);
     data.proofs = [...form.querySelectorAll("#proofs > fieldset.proof-edit")].map((fs) => {

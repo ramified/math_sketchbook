@@ -54,6 +54,7 @@ export interface ResultRow {
   position: number;
   visibility: "published" | "draft";
   state: "active" | "retired";
+  listed: number; // 1 = numbered and listed in its section; 0 = reachable only through links
   replaced_by_id: number | null;
   revision: number;
   updated_at: string;

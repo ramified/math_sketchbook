@@ -162,6 +162,8 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
   const type = oneOf<ResultType>(body.type, RESULT_TYPES, "type");
   const title = str(body.title, 300, "Title").trim();
   const sectionId = int(body.section_id, "section");
+  // Unlisted results are reachable only through links; omitted = keep the current setting.
+  const listed = body.listed === undefined ? existing.listed : body.listed ? 1 : 0;
   const placeAfter = parsePlaceAfter(body.place_after);
   let statement = str(body.statement_tex, MAX_TEX, "Statement");
   const aliasesIn = Array.isArray(body.aliases) ? body.aliases.map((a) => str(a, 64, "Alias").trim().toLowerCase()).filter(Boolean) : [];
@@ -212,7 +214,7 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
     guard(db, "results", existing.id, revision),
     baselineRow(db, "result", existing.id, existing.revision, op, {
       tag, type: existing.type, title: existing.title, statement_tex: existing.statement_tex, section_id: existing.section_id,
-      position: existing.position, aliases: oldAliases,
+      position: existing.position, listed: existing.listed, aliases: oldAliases,
     }, existing.updated_by),
     ...existingProofs.map((p) => baselineRow(db, "proof", p.id, p.revision, op, proofSnapshot(p), null)),
   ];
@@ -282,10 +284,10 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
   stmts.push(db.prepare("DELETE FROM refs WHERE source_result_id = ?").bind(existing.id));
   for (const old of existingProofs) if (!keptIds.has(old.id)) stmts.push(db.prepare("DELETE FROM proofs WHERE id = ?").bind(old.id));
   stmts.push(
-    db.prepare(`UPDATE results SET type=?, title=?, statement_tex=?, statement_html_cache=?, section_id=?, position=?,
+    db.prepare(`UPDATE results SET type=?, title=?, statement_tex=?, statement_html_cache=?, section_id=?, position=?, listed=?,
                 visibility='published', revision=revision+1, updated_at=?, updated_by=? WHERE id=?`)
-      .bind(type, title, statement, stmtOut.html, sectionId, newPosition, ts, author, existing.id),
-    revisionRow(db, "result", existing.id, revision + 1, op, { tag, type, title, statement_tex: statement, section_id: sectionId, position: newPosition, aliases: [...newAliases.keys()] }, author),
+      .bind(type, title, statement, stmtOut.html, sectionId, newPosition, listed, ts, author, existing.id),
+    revisionRow(db, "result", existing.id, revision + 1, op, { tag, type, title, statement_tex: statement, section_id: sectionId, position: newPosition, listed, aliases: [...newAliases.keys()] }, author),
   );
   stmts.push(...proofWrites);
   stmts.push(...refInserts(db, existing.id, stmtOut.refs, proofRefs));

@@ -128,7 +128,7 @@ export async function resultPage(
 ${await resultBlock(ctx, r, proofs, { proofsCollapsed: false })}
 <div class="result-meta">
   <p>Permanent link: <code>/tag/${r.tag}</code>${aliases.length ? html` · also <code>${aliases.join(", ")}</code>` : ""}
-   · ${section ? html`<a href="/tag/${section.tag}#${r.tag}">view in context</a>` : ""} · <a href="/edit/result/${r.tag}">edit</a></p>
+   · ${section && e.listed ? html`<a href="/tag/${section.tag}#${r.tag}">view in context</a> · ` : ""}<a href="/edit/result/${r.tag}">edit</a></p>
   <div class="deps"><div><h2>Uses</h2>${list(usesTags)}</div><div><h2>Used by</h2>${list(usedByTags)}</div></div>
 </div>`);
 }

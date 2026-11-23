@@ -1,0 +1,37 @@
+{
+  "name": "grh-notes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "assets": "node scripts/copy-katex.mjs",
+    "predev": "npm run assets",
+    "predeploy": "npm run assets",
+    "dev": "wrangler dev --ip 127.0.0.1 --var ENVIRONMENT:development --var DEV_EDITOR_EMAIL:editor@localhost",
+    "db:migrate:local": "wrangler d1 migrations apply grh-notes --local",
+    "db:seed:local": "wrangler d1 execute grh-notes --local --file seed/seed.sql && wrangler d1 execute grh-notes --local --file seed/dev-user.sql",
+    "setup": "npm run db:migrate:local && npm run db:seed:local",
+    "db:migrate:remote": "wrangler d1 migrations apply grh-notes --remote",
+    "db:seed:remote": "wrangler d1 execute grh-notes --remote --file seed/seed.sql",
+    "db:backup": "wrangler d1 export grh-notes --remote --output backup.sql",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@unified-latex/unified-latex-util-parse": "^1.8.4",
+    "hono": "^4.13.21",
+    "jose": "^6.2.18",
+    "katex": "^0.19.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261123.1",
+    "@types/katex": "^0.16.8",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.166.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261119.1": true
+  }
+}

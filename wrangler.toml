@@ -1,0 +1,20 @@
+name = "grh-notes"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+# Static files (CSS, JS, KaTeX fonts) served directly by Cloudflare.
+[assets]
+directory = "public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "grh-notes"
+# Replace with the id printed by `npx wrangler d1 create grh-notes` before your first deploy.
+database_id = "f76a0ade-4420-4037-bc72-ebc6a4a0d1f4"
+migrations_dir = "migrations"
+
+[vars]
+ENVIRONMENT = "production"
+# Fill these in after setting up Cloudflare Access (see README, "Deploy").
+ACCESS_TEAM_DOMAIN = ""   # e.g. "https://yourteam.cloudflareaccess.com"
+ACCESS_AUD = ""           # the Access application's "Application Audience (AUD) Tag"

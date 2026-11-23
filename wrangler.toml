@@ -15,6 +15,5 @@ migrations_dir = "migrations"
 
 [vars]
 ENVIRONMENT = "production"
-# Fill these in after setting up Cloudflare Access (see README, "Deploy").
-ACCESS_TEAM_DOMAIN = ""   # e.g. "https://yourteam.cloudflareaccess.com"
-ACCESS_AUD = ""           # the Access application's "Application Audience (AUD) Tag"
+EDITOR_NAME = "admin"     # author name shown in the edit history
+# The editor password is a secret, not set here: npx wrangler secret put EDITOR_PASSWORD

@@ -21,7 +21,6 @@
   "dependencies": {
     "@unified-latex/unified-latex-util-parse": "^1.8.4",
     "hono": "^4.13.21",
-    "jose": "^6.2.18",
     "katex": "^0.19.1"
   },
   "devDependencies": {

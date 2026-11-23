@@ -48,27 +48,14 @@ automatically as `editor@localhost`, and that only works on `localhost`.
    npm run deploy
    ```
    It prints your address, something like `https://grh-notes.<your-subdomain>.workers.dev`. The public pages work
-   now. `/edit` still says "not configured" until you finish step 5.
-5. **Editor login (Cloudflare Access).** In the Cloudflare dashboard open **Zero Trust**. The first time, it asks
-   you to choose a *team name* and the free plan.
-   - Go to **Access → Applications → Add an application → Self-hosted**.
-   - Application domain: your `grh-notes.<your-subdomain>.workers.dev`, with path `edit`. Add a second
-     destination for the same domain with path `api/edit`. **Protect only these two paths.** The rest of the site
-     must stay public.
-   - Policy: *Allow*, Include → *Emails* → your email address. The login method is "One-time PIN", which is the
-     default.
-   - After saving, open the application and copy its **Application Audience (AUD) Tag**.
-   - In `wrangler.toml`, fill in
-     `ACCESS_TEAM_DOMAIN = "https://<team-name>.cloudflareaccess.com"` and `ACCESS_AUD = "<the AUD tag>"`.
-6. Register yourself as an editor (use your own email address):
+   now. `/edit` says "not configured" until you finish step 5.
+5. **Editor password.** Pick a long random password (at least 16 characters; a password manager can generate
+   one) and store it as a Cloudflare secret. The command asks you to type it:
    ```powershell
-   npx wrangler d1 execute grh-notes --remote --command "INSERT INTO users (email, role) VALUES ('you@example.com', 'admin')"
+   npx wrangler secret put EDITOR_PASSWORD
    ```
-7. Deploy again:
-   ```powershell
-   npm run deploy
-   ```
-   Visit `/edit`: Cloudflare asks for your email, sends you a code, and you're in.
+   The new password takes effect immediately, no deploy needed. Visit `/edit`, enter the password, and you stay
+   logged in on that browser for 30 days. To log out everywhere, set a new password with the same command.
 
 From then on, **content changes need no deploying**: you edit in the browser and the change is live. Run
 `npm run deploy` again only when the *code* changes.
@@ -146,7 +133,7 @@ src/index.ts        routes (public pages, knowl API, editor pages, editor API)
 src/latex.ts        LaTeX → HTML (unified-latex parser + KaTeX), alias rewriting, macros
 src/book.ts         book structure, numbering, cached HTML, \ref placeholders → "Lemma 1.2.3"
 src/store.ts        saving: validation, atomic batches, history, reference graph
-src/auth.ts         Cloudflare Access JWT verification + roles
+src/auth.ts         editor password login (signed session cookie)
 src/views/          HTML templates (reader and editor)
 public/static/      CSS, knowl.js (click-to-expand), editor.js (preview & save)
 migrations/         database schema (see comments in 0001_init.sql)

@@ -3,8 +3,8 @@ export interface Env {
   ASSETS: Fetcher;
   ENVIRONMENT: string; // "production" unless overridden by `npm run dev`
   DEV_EDITOR_EMAIL?: string; // local development only
-  ACCESS_TEAM_DOMAIN?: string; // e.g. https://myteam.cloudflareaccess.com
-  ACCESS_AUD?: string; // Cloudflare Access application audience tag
+  EDITOR_PASSWORD?: string; // secret: `npx wrangler secret put EDITOR_PASSWORD` (at least 16 characters)
+  EDITOR_NAME?: string; // name recorded as the author in the history (default "admin")
 }
 
 export const RESULT_TYPES = [

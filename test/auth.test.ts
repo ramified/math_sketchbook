@@ -1,22 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { authenticate } from "../src/auth.ts";
+import { authenticate, checkPassword, createSession, SESSION_COOKIE, SESSION_SECONDS } from "../src/auth.ts";
 import { isTag, isAlias, randomTag } from "../src/tags.ts";
 
-// Fake D1 that knows one editor.
-const db = {
-  prepare: () => ({
-    bind: (email: string) => ({
-      first: async () => (email === "editor@localhost" ? { email, role: "admin" } : null),
-    }),
-  }),
-};
-const env = (over: Record<string, string>) => ({ DB: db, ENVIRONMENT: "production", ...over }) as never;
+const env = (over: Record<string, string>) => ({ ENVIRONMENT: "production", ...over }) as never;
+const PW = "correct horse battery staple";
+const prod = env({ EDITOR_PASSWORD: PW });
+const withCookie = (v: string) => new Request("https://notes.example/edit", { headers: { Cookie: `x=1; ${SESSION_COOKIE}=${v}` } });
 
-test("production without Access config fails closed", async () => {
-  const r = await authenticate(new Request("https://notes.example/edit"), env({ DEV_EDITOR_EMAIL: "editor@localhost" }));
-  assert.equal(r.ok, false);
-  assert.equal(!r.ok && r.status, 500);
+test("production without a (long enough) password fails closed", async () => {
+  for (const e of [env({ DEV_EDITOR_EMAIL: "editor@localhost" }), env({ EDITOR_PASSWORD: "short" })]) {
+    const r = await authenticate(new Request("https://notes.example/edit"), e);
+    assert.equal(!r.ok && r.status, 500);
+    assert.equal(await checkPassword(e, "short"), false);
+  }
 });
 
 test("dev bypass only on localhost", async () => {
@@ -27,15 +24,30 @@ test("dev bypass only on localhost", async () => {
   assert.equal(remote.ok, false);
 });
 
-test("missing or forged token is rejected", async () => {
-  const e = env({ ACCESS_TEAM_DOMAIN: "https://team.cloudflareaccess.com", ACCESS_AUD: "aud" });
-  const none = await authenticate(new Request("https://notes.example/edit"), e);
+test("password check", async () => {
+  assert.equal(await checkPassword(prod, PW), true);
+  assert.equal(await checkPassword(prod, PW + " "), false);
+  assert.equal(await checkPassword(prod, ""), false);
+});
+
+test("valid session is accepted; missing, forged, expired or old-password sessions are rejected", async () => {
+  const now = Date.now();
+  const good = await createSession(prod, now);
+  assert.equal((await authenticate(withCookie(good), prod, now)).ok, true);
+
+  const none = await authenticate(new Request("https://notes.example/edit"), prod, now);
   assert.equal(!none.ok && none.status, 401);
-  const forged = await authenticate(
-    new Request("https://notes.example/edit", { headers: { "Cf-Access-Jwt-Assertion": "eyJhbGciOiJub25lIn0.eyJlbWFpbCI6ImEifQ." } }),
-    e,
-  );
-  assert.equal(!forged.ok && forged.status, 401);
+
+  const [exp, sig] = good.split(".");
+  const tampered = `${Number(exp) + 999999}.${sig}`;
+  assert.equal((await authenticate(withCookie(tampered), prod, now)).ok, false);
+  assert.equal((await authenticate(withCookie("garbage"), prod, now)).ok, false);
+
+  const later = now + (SESSION_SECONDS + 1) * 1000;
+  assert.equal((await authenticate(withCookie(good), prod, later)).ok, false);
+
+  const changed = env({ EDITOR_PASSWORD: PW + "!" });
+  assert.equal((await authenticate(withCookie(good), changed, now)).ok, false);
 });
 
 test("tags avoid 0 O 1 I L; aliases never look like tags", () => {

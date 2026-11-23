@@ -1,7 +1,10 @@
 import { Hono, type Context } from "hono";
 import type { Env, ProofRow, ResultRow, SectionRow, User } from "./types.ts";
 import { loadCtx, rebuildAll, fillRefs, type Ctx } from "./book.ts";
-import { authenticate, canEdit } from "./auth.ts";
+import {
+  authenticate, canEdit, checkPassword, createSession, sessionCookieHeader, clearSessionCookieHeader, loginConfigured,
+  NOT_CONFIGURED,
+} from "./auth.ts";
 import { isTag } from "./tags.ts";
 import * as reader from "./views/reader.ts";
 import * as editor from "./views/editor.ts";
@@ -102,11 +105,55 @@ app.get("/api/knowl/:tag", async (c) => {
   return c.body(await reader.knowlResult(ctx, r, proofs.get(r.id) ?? []), 200, htmlHeaders);
 });
 
+// ------------------------------------------------------------------------------------------- login / logout
+
+/** Only same-site paths, so /login?next=… cannot send you to another website. */
+function safeNext(v: unknown): string {
+  return typeof v === "string" && v.startsWith("/") && !v.startsWith("//") && !v.startsWith("/\\") ? v : "/edit";
+}
+
+function sameOrigin(c: Context<AppEnv>): boolean {
+  return c.req.header("Origin") === new URL(c.req.url).origin;
+}
+
+app.get("/login", async (c) => {
+  const next = safeNext(c.req.query("next"));
+  if ((await authenticate(c.req.raw, c.env)).ok) return c.redirect(next, 303);
+  const ctx = await loadCtx(c.env, false);
+  if (!loginConfigured(c.env)) return c.body(editor.errorPage(ctx, 500, NOT_CONFIGURED), 500, htmlHeaders);
+  return c.body(editor.loginPage(ctx, next, null), 200, htmlHeaders);
+});
+
+app.post("/login", async (c) => {
+  if (!sameOrigin(c)) return c.text("Cross-site request refused.", 403);
+  const ctx = await loadCtx(c.env, false);
+  if (!loginConfigured(c.env)) return c.body(editor.errorPage(ctx, 500, NOT_CONFIGURED), 500, htmlHeaders);
+  const form = await c.req.parseBody();
+  const next = safeNext(form.next);
+  const password = typeof form.password === "string" ? form.password : "";
+  if (!(await checkPassword(c.env, password))) {
+    await new Promise((r) => setTimeout(r, 1000)); // slow down guessing
+    return c.body(editor.loginPage(ctx, next, "Wrong password."), 401, htmlHeaders);
+  }
+  c.header("Set-Cookie", sessionCookieHeader(await createSession(c.env)));
+  return c.redirect(next, 303);
+});
+
+app.post("/logout", async (c) => {
+  if (!sameOrigin(c)) return c.text("Cross-site request refused.", 403);
+  c.header("Set-Cookie", clearSessionCookieHeader());
+  return c.redirect("/", 303);
+});
+
 // ------------------------------------------------------------------------------------------- editor (login required)
 
 async function requireEditor(c: Context<AppEnv>, next: () => Promise<void>) {
   const auth = await authenticate(c.req.raw, c.env);
   const isApi = c.req.path.startsWith("/api/");
+  if (!auth.ok && auth.status === 401 && !isApi && c.req.method === "GET") {
+    const u = new URL(c.req.url);
+    return c.redirect(`/login?next=${encodeURIComponent(u.pathname + u.search)}`, 303);
+  }
   if (!auth.ok) {
     return isApi ? c.json({ error: auth.message }, auth.status) : c.body(editor.errorPage(null, auth.status, auth.message), auth.status, htmlHeaders);
   }

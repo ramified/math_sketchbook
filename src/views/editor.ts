@@ -48,6 +48,7 @@ export function dashboardPage(ctx: Ctx, user: User): string {
   );
   return page(ctx, "Editor", html`<h1>Editor</h1>
 <p>Logged in as <strong>${user.email}</strong> (${user.role}). Saving publishes immediately; every save is kept in the history.</p>
+<form method="post" action="/logout" class="inline-form"><button type="submit">Log out</button></form>
 <p><a href="/edit/settings">Book title, macros &amp; bibliography</a></p>
 ${ctx.macroError ? html`<p class="warning">Macro file error: ${ctx.macroError}</p>` : ""}
 <nav class="toc edit-toc"><ol>${chapters}</ol></nav>
@@ -203,6 +204,19 @@ export function historyPage(ctx: Ctx, heading: string, items: HistoryItem[], res
       ${restoreBase && (it.entity === "result" || it.entity === "proof") ? html` · <a href="${restoreBase}?restore=${it.id}">Load into editor</a>` : ""}
       <details><summary>Show source</summary><pre>${tex}</pre></details></li>`;
   })}</ol>`);
+}
+
+export function loginPage(ctx: Ctx | null, next: string, error: string | null): string {
+  return layout({
+    title: "Editor login", bookTitle: ctx?.settings.book_title ?? "Notes",
+    body: html`<h1>Editor login</h1>
+${error ? html`<p class="warning">${error}</p>` : ""}
+<form method="post" action="/login" class="login-form">
+  <input type="hidden" name="next" value="${next}">
+  <label>Password <input type="password" name="password" autocomplete="current-password" required autofocus></label>
+  <button type="submit">Log in</button>
+</form>`,
+  });
 }
 
 export function errorPage(ctx: Ctx | null, status: number, message: string): string {

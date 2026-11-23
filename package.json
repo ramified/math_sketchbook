@@ -16,7 +16,7 @@
     "db:backup": "wrangler d1 export grh-notes --remote --output backup.sql",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/"
+    "test": "node --test \"test/*.test.ts\""
   },
   "dependencies": {
     "@unified-latex/unified-latex-util-parse": "^1.8.4",

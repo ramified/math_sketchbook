@@ -25,7 +25,7 @@ export function entryHeading(ctx: Ctx, e: Entry): SafeHtml {
   return html`<span class="result-label">${e.label}</span>${t ? html` <span class="result-title">(${raw(t)})</span>` : ""}`;
 }
 
-/** One result with its statement and proofs. `proofsCollapsed` is used inside knowls. */
+/** One result with its statement and proofs. Proofs are collapsed unless `proofsCollapsed: false` (the result's own page). */
 export async function resultBlock(ctx: Ctx, r: ResultRow, proofs: ProofRow[], opts: { proofsCollapsed?: boolean; headingLink?: boolean } = {}): Promise<SafeHtml> {
   const e = ctx.book.byTag.get(r.tag);
   if (!e) return html``;
@@ -38,7 +38,7 @@ export async function resultBlock(ctx: Ctx, r: ResultRow, proofs: ProofRow[], op
     const body = await proofHtml(ctx, p);
     const head = html`<span class="proof-label">${label}.</span> ${badge(p.status)} ${provenance(p)}`;
     proofParts.push(
-      opts.proofsCollapsed
+      opts.proofsCollapsed ?? true
         ? html`<details class="proof"><summary>${head}</summary><div class="proof-body">${raw(body)}<span class="qed" aria-label="end of proof">∎</span></div></details>`
         : html`<section class="proof"><div class="proof-head">${head}</div><div class="proof-body">${raw(body)}<span class="qed" aria-label="end of proof">∎</span></div></section>`,
     );
@@ -125,7 +125,7 @@ export async function resultPage(
         })}</ul>`
       : html`<p class="muted">None.</p>`;
   return page(ctx, e.label, html`${breadcrumb(ctx, e)}
-${await resultBlock(ctx, r, proofs)}
+${await resultBlock(ctx, r, proofs, { proofsCollapsed: false })}
 <div class="result-meta">
   <p>Permanent link: <code>/tag/${r.tag}</code>${aliases.length ? html` · also <code>${aliases.join(", ")}</code>` : ""}
    · ${section ? html`<a href="/tag/${section.tag}#${r.tag}">view in context</a>` : ""} · <a href="/edit/result/${r.tag}">edit</a></p>

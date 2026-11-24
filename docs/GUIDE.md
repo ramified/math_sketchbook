@@ -110,6 +110,10 @@ are edited at `/edit/settings`.
   `\hyperref[TAG or alias]{words}` links your own words instead of printing "Lemma 1.2.3"; math is allowed in the
   words. A plain `\ref` to an unlisted result shows its title.
 - **Citations:** `\cite{key}` and `\cite[Thm.~3]{key}`, using `\bibitem{key}` entries on the Settings page.
+- **Figures:** `\includegraphics[width=0.8, alt=Short description]{/static/figures/name.svg}` shows a centred image.
+  Only files under `public/static/figures/` are allowed (svg, png, jpg, webp), and adding one needs `npm run deploy`.
+  `width` is a fraction of the column (or a percentage). Example: `scripts/plot-smoothed-prime-sum.mjs` draws the
+  graph used in Example 1.2.3.
 - **Macros:** the shared macro file (Settings) accepts `\newcommand`, `\renewcommand`, `\def` and
   `\DeclareMathOperator`. It applies to all math on the site.
 - **Not supported yet:** `\label` / `\eqref` for equations (`\label` is silently ignored), `\ref` *inside* math, and

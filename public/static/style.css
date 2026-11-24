@@ -124,6 +124,14 @@ details.proof > summary { cursor: pointer; }
 .provenance { font-family: system-ui, sans-serif; font-size: 0.75rem; color: var(--muted); }
 
 .math-display { overflow-x: auto; overflow-y: hidden; margin: 0.6rem 0; }
+.part-picker { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.2rem 0 0.6rem; font-family: system-ui, sans-serif; font-size: 0.8rem; }
+.part-picker button { font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--muted); border-radius: 999px; padding: 0.1rem 0.7rem; cursor: pointer; }
+.part-picker button:hover { border-color: var(--accent); color: var(--accent); }
+.part-picker button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.part-link { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.part-link:hover, .part-link:focus-visible { color: var(--accent); }
+.tex-figure { margin: 0.8rem 0; text-align: center; }
+.tex-figure img { max-width: 100%; height: auto; }
 .katex-display { margin: 0.4rem 0; }
 .math-error, .ref-broken, .tex-unknown { color: var(--error); font-family: ui-monospace, Consolas, monospace; font-size: 0.85em; }
 .math-error.display { display: block; white-space: pre-wrap; }

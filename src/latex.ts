@@ -74,6 +74,7 @@ const WRAP_MACROS: Record<string, [string, string]> = {
   footnote: ['<span class="footnote">(', ")</span>"],
 };
 const REF_MACROS = new Set(["ref", "cref", "Cref", "autoref"]);
+const FIGURE_SRC_RE = /^\/static\/figures\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.(svg|png|jpe?g|webp)$/;
 const CITE_MACROS = new Set(["cite", "citep", "citet"]);
 
 export function escapeHtml(s: string): string {
@@ -281,6 +282,7 @@ class Renderer {
       const label = this.inline(args[1]?.content);
       return [{ kind: "inline", html: ok ? `<a href="${escapeHtml(ok)}">${label}</a>` : label }];
     }
+    if (name === "includegraphics") return [this.figure(n)];
     if (name === "item") {
       this.warn(n, "\\item outside a list.");
       return this.segs(mainArg(n));
@@ -288,6 +290,26 @@ class Renderer {
     this.warn(n, `Unsupported command \\${name}.`);
     const inner = (n.args ?? []).map((a) => this.inline(a.content)).join("");
     return [{ kind: "inline", html: `<span class="tex-unknown">\\${escapeHtml(name)}</span>${inner}` }];
+  }
+
+  /**
+   * \includegraphics[width=0.8\textwidth, alt=Some text]{/static/figures/name.svg}: a centred image. Only files
+   * shipped with the site under /static/figures/ are allowed, so content can never embed outside URLs.
+   */
+  figure(n: Node): Seg {
+    const src = plainText(mainArg(n)).trim();
+    if (!FIGURE_SRC_RE.test(src)) {
+      this.warn(n, `\\includegraphics only accepts files under /static/figures/ (got "${src}").`);
+      return { kind: "block", html: `<span class="tex-unknown">\\includegraphics{${escapeHtml(src)}}</span>` };
+    }
+    const opts = plainText(optArg(n));
+    const w = /width\s*=\s*([0-9]*\.?[0-9]+)/.exec(opts);
+    const pct = w ? Math.min(100, Math.max(10, Number(w[1]) <= 1 ? Number(w[1]) * 100 : Number(w[1]))) : 100;
+    const alt = /alt\s*=\s*([^,]*)/.exec(opts)?.[1].trim() ?? "";
+    return {
+      kind: "block",
+      html: `<figure class="tex-figure"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" style="width:${pct}%" loading="lazy"></figure>`,
+    };
   }
 
   environment(n: Node): Seg[] {

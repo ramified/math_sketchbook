@@ -8,7 +8,7 @@ export interface LayoutOpts {
   description?: string;
 }
 
-const ASSET_VERSION = "3"; // bump when public/static files change, so browsers fetch the new ones
+const ASSET_VERSION = "4"; // bump when public/static files change, so browsers fetch the new ones
 
 export function layout(o: LayoutOpts): string {
   return "<!doctype html>\n" + html`<html lang="en">
@@ -21,6 +21,7 @@ ${o.description ? html`<meta name="description" content="${o.description}">` : "
 <link rel="stylesheet" href="/static/style.css?v=${ASSET_VERSION}">
 ${o.editor ? html`<link rel="stylesheet" href="/static/editor.css?v=${ASSET_VERSION}">` : ""}
 <script src="/static/knowl.js?v=${ASSET_VERSION}" defer></script>
+<script src="/static/proofparts.js?v=${ASSET_VERSION}" defer></script>
 ${o.editor ? html`<script src="/static/editor.js?v=${ASSET_VERSION}" defer></script>` : ""}
 </head>
 <body class="${o.editor ? "editor-mode" : ""}">

@@ -105,3 +105,15 @@ test("\hyperref links its own text; aliases in it are rewritten", async () => {
   assert.match(fillRefs(renderTex(String.raw`\ref{8JA9}`, macros).html, book), />Dirichlet character<\/a>/);
   assert.equal(rewriteRefTargets(String.raw`\hyperref[chi]{a} \ref{chi}`, (t) => (t === "chi" ? "8JA9" : null)), String.raw`\hyperref[8JA9]{a} \ref{8JA9}`);
 });
+
+test("includegraphics: local figures only, width and alt options", () => {
+  const ok = renderTex(String.raw`See:
+\includegraphics[width=0.8\textwidth, alt=Graph of G]{/static/figures/g1.svg}`, macros);
+  assert.deepEqual(ok.warnings, []);
+  assert.match(ok.html, /<figure class="tex-figure"><img src="\/static\/figures\/g1\.svg" alt="Graph of G" style="width:80%" loading="lazy"><\/figure>/);
+  for (const bad of ["https://evil.example/x.svg", "/static/figures/../style.css", "/static/x.svg", "javascript:alert(1)"]) {
+    const r = renderTex(String.raw`\includegraphics{` + bad + "}", macros);
+    assert.equal(r.warnings.length, 1, bad);
+    assert.ok(!r.html.includes("<img"), bad);
+  }
+});

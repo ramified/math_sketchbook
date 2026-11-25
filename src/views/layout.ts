@@ -22,6 +22,7 @@ ${o.description ? html`<meta name="description" content="${o.description}">` : "
 ${o.editor ? html`<link rel="stylesheet" href="/static/editor.css?v=${ASSET_VERSION}">` : ""}
 <script src="/static/knowl.js?v=${ASSET_VERSION}" defer></script>
 <script src="/static/proofparts.js?v=${ASSET_VERSION}" defer></script>
+${!o.editor ? html`<script type="module" src="/static/pinboard.js?v=${ASSET_VERSION}"></script>` : ""}
 ${o.editor ? html`<script src="/static/editor.js?v=${ASSET_VERSION}" defer></script>` : ""}
 </head>
 <body class="${o.editor ? "editor-mode" : ""}">

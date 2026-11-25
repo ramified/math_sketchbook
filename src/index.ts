@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import type { Env, ProofRow, ResultRow, SectionRow, User } from "./types.ts";
-import { loadCtx, rebuildAll, fillRefs, type Ctx } from "./book.ts";
+import { loadCtx, loadSettings, rebuildAll, fillRefs, type Ctx } from "./book.ts";
 import {
   authenticate, canEdit, checkPassword, createSession, sessionCookieHeader, clearSessionCookieHeader, loginConfigured,
   NOT_CONFIGURED,
@@ -103,6 +103,14 @@ app.get("/api/knowl/:tag", async (c) => {
   if (!r) return c.text("Unknown reference", 404);
   const proofs = await proofsFor(c.env.DB, { resultId: r.id }, false);
   return c.body(await reader.knowlResult(ctx, r, proofs.get(r.id) ?? []), 200, htmlHeaders);
+});
+
+app.get("/api/macros", async (c) => {
+  const settings = await loadSettings(c.env.DB);
+  return c.body(settings.macros ?? "", 200, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-cache",
+  });
 });
 
 // ------------------------------------------------------------------------------------------- login / logout

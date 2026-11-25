@@ -66,7 +66,7 @@ export function homePage(ctx: Ctx): string {
   )}</ol></li>`,
   );
   return page(ctx, "", html`<h1>${ctx.settings.book_title ?? "Notes"}</h1>
-<p class="lede">Click any reference (like “Lemma 1.1.2”) to expand it in place. Click it again, or press ×, to collapse it.</p>
+<p class="lede">Click any reference (like “Lemma 1.1.2”) to expand it in place. Click it again, or press ×, to collapse it. Hover over a result, a displayed formula or a figure and press the pin to keep it in the pinboard beside the text.</p>
 <nav class="toc" aria-label="Table of contents"><ol>${toc}</ol></nav>`);
 }
 

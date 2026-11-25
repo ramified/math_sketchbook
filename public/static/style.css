@@ -88,7 +88,8 @@ pre { background: var(--code-bg); padding: 0.6rem; overflow-x: auto; border-radi
 .type-definition > .result-head .result-label { color: var(--def); }
 .type-theorem > .result-head .result-label, .type-proposition > .result-head .result-label,
 .type-lemma > .result-head .result-label, .type-corollary > .result-head .result-label { color: var(--thm); }
-.type-remark > .result-head .result-label, .type-example > .result-head .result-label { color: var(--rem); }
+.type-remark > .result-head .result-label, .type-example > .result-head .result-label,
+.type-motivation > .result-head .result-label { color: var(--rem); }
 /* italic statements (child combinator so knowls opened inside a theorem are not affected) */
 .type-theorem > .statement, .type-lemma > .statement, .type-proposition > .statement,
 .type-corollary > .statement, .type-conjecture > .statement { font-style: italic; }

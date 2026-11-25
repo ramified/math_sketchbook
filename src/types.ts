@@ -8,7 +8,7 @@ export interface Env {
 }
 
 export const RESULT_TYPES = [
-  "definition", "lemma", "proposition", "theorem", "corollary", "conjecture", "remark", "example",
+  "definition", "lemma", "proposition", "theorem", "corollary", "conjecture", "remark", "example", "motivation",
 ] as const;
 export type ResultType = (typeof RESULT_TYPES)[number];
 

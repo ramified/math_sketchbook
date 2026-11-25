@@ -1,7 +1,9 @@
 import { html, raw, type SafeHtml } from "../html.ts";
-import { type Ctx, titleHtml } from "../book.ts";
+import { type Ctx, titleHtml, typeName } from "../book.ts";
 import { RESULT_TYPES, PROOF_STATUSES, GENERATORS, STATUS_BADGES, type ProofRow, type ResultRow, type SectionRow, type User } from "../types.ts";
 import { layout } from "./layout.ts";
+
+const resultTypeOptions = RESULT_TYPES.map((type) => ({ value: type, label: typeName(type) }));
 
 function page(ctx: Ctx, title: string, body: SafeHtml): string {
   return layout({ title: `${title} — editor`, bookTitle: ctx.settings.book_title ?? "Notes", body, editor: true });
@@ -27,7 +29,7 @@ function texPair(name: string, value: string, rows = 8, label = ""): SafeHtml {
 }
 
 export function dashboardPage(ctx: Ctx, user: User): string {
-  const typeOpts = options(RESULT_TYPES.map((t) => ({ value: t, label: t })), "lemma");
+  const typeOpts = options(resultTypeOptions, "lemma");
   const chapters = ctx.book.chapters.map(
     (ch) => html`<li class="toc-chapter">
   <span class="num">${ch.number}</span> ${raw(titleHtml(ctx, ch.title))} <a class="edit-link" href="/edit/section/${ch.tag}">edit</a>
@@ -101,7 +103,7 @@ ${jsonScript("sections-data", sections)}
 <form id="edit-form" data-save-url="/api/edit/result/${r.tag}" data-public-url="/tag/${r.tag}">
   <input type="hidden" name="revision" value="${r.revision}">
   <div class="meta-grid">
-    <label>Type <select name="type">${options(RESULT_TYPES.map((t) => ({ value: t, label: t })), type)}</select></label>
+    <label>Type <select name="type">${options(resultTypeOptions, type)}</select></label>
     <label>Title <input name="title" value="${title}" placeholder="optional, LaTeX allowed"></label>
     <label>Section <select name="section_id" data-current="${r.section_id}">${options(sections.map((s) => ({ value: s.id, label: s.label })), r.section_id)}</select></label>
     <label>Position <select name="place_after" data-self="${r.id}"><option value="keep">(keep current position)</option></select></label>

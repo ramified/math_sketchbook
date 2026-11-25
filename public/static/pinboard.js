@@ -12,8 +12,10 @@ function texOf(node) {
   return node.querySelector('annotation[encoding="application/x-tex"]')?.textContent.trim() ?? "";
 }
 
-function displayMath(tex) {
-  return "$$\n" + tex + "\n$$";
+function formatMath(tex, display = false) {
+  const hasDollar = tex.includes("$");
+  if (display) return hasDollar ? "\\[\n" + tex + "\n\\]" : "$$\n" + tex + "\n$$";
+  return hasDollar ? "\\(" + tex + "\\)" : "$" + tex + "$";
 }
 
 function figureText(img) {
@@ -21,16 +23,21 @@ function figureText(img) {
 }
 
 function toMarkdown(node) {
-  const block = (text) => "\n\n" + text + "\n\n";
-  const children = (el) => [...el.childNodes].map(convert).join("");
+  const block = (text) => "\n\n" + text.trim() + "\n\n";
+  const children = (el, skip = null) => [...el.childNodes].reduce((text, child) => {
+    if (child === skip) return text;
+    const part = convert(child);
+    return text + (child.nodeType === Node.TEXT_NODE && text.endsWith("\n") ? part.trimStart() : part);
+  }, "");
+  const listItem = (marker, text) => marker + text.replace(/\n(?=[^\n])/g, "\n" + " ".repeat(marker.length));
 
   function convert(el) {
     if (el.nodeType === Node.TEXT_NODE) return el.textContent.replace(/\s+/g, " ");
     if (el.nodeType !== Node.ELEMENT_NODE || el.matches(SKIP)) return "";
-    if (el.matches(".katex-display")) return block(displayMath(texOf(el)));
-    if (el.matches(".katex")) return "$" + texOf(el) + "$";
-    if (el.matches(".math-error.display")) return block(displayMath(el.textContent));
-    if (el.matches(".math-error")) return "$" + el.textContent + "$";
+    if (el.matches(".katex-display")) return block(formatMath(texOf(el), true));
+    if (el.matches(".katex")) return formatMath(texOf(el));
+    if (el.matches(".math-error.display")) return block(formatMath(el.textContent.trim(), true));
+    if (el.matches(".math-error")) return formatMath(el.textContent.trim());
 
     switch (el.tagName) {
       case "IMG": return figureText(el);
@@ -42,13 +49,15 @@ function toMarkdown(node) {
           const labeled = li.matches(".labeled");
           const marker = el.tagName === "OL" && !labeled ? (i + 1) + ". " : "- ";
           const label = labeled ? li.querySelector(":scope > .item-label") : null;
-          const content = [...li.childNodes].filter((node) => node !== label).map(convert).join("").trim();
-          return marker + (label ? convert(label).trim() + " " : "") + (content.startsWith("$$\n") ? "\n\n" : "") + content;
+          const labelText = label ? convert(label).trim() + " " : "";
+          const content = children(li, label).trim();
+          const startsWithBlock = /^(?:\$\$\n|\\\[\n|- |\d+\. )/.test(content);
+          return listItem(marker, labelText + (startsWithBlock ? "\n\n" : "") + content);
         }).join("\n"));
       case "DL":
         return block([...el.querySelectorAll(":scope > dt")].map((dt) => {
           const dd = dt.nextElementSibling;
-          return "- " + children(dt).trim() + ": " + (dd?.matches("dd") ? children(dd).trim() : "");
+          return listItem("- ", children(dt).trim() + ": " + (dd?.matches("dd") ? children(dd).trim() : ""));
         }).join("\n"));
       default:
         return el.matches("p, div, blockquote, figure, figcaption, section, article, pre, h1, h2, h3, h4, h5, h6")
@@ -57,7 +66,7 @@ function toMarkdown(node) {
     }
   }
 
-  return node ? convert(node).split("\n").map((line) => line.trim()).join("\n").replace(/\n{3,}/g, "\n\n").trim() : "";
+  return node ? convert(node).split("\n").map((line) => line.trimEnd()).join("\n").replace(/\n{3,}/g, "\n\n").trim() : "";
 }
 
 function cleanClone(el) {
@@ -127,7 +136,7 @@ function snapshot(el, kind, result, tag, key) {
     labelHtml: prefix + (heading?.innerHTML.trim() || "this page"),
     label: prefix + (toMarkdown(heading) || "this page"),
     html: clone.outerHTML,
-    text: kind === "formula" ? displayMath(texOf(clone)) : figureText(clone.querySelector("img")),
+    text: kind === "formula" ? formatMath(texOf(clone), true) : figureText(clone.querySelector("img")),
   };
 }
 
@@ -209,6 +218,7 @@ document.body.append(board, tab);
 const heading = board.querySelector(".pinboard-head strong");
 const hide = board.querySelector(".pinboard-head button");
 const cards = board.querySelector(".pin-cards");
+const cardEntries = new Map();
 const question = board.querySelector("textarea");
 const copy = board.querySelector(".pin-copy");
 const clear = board.querySelector(".pin-clear");
@@ -268,7 +278,8 @@ function cardFor(item) {
   link.innerHTML = item.labelHtml;
   link.addEventListener("click", (event) => {
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-    const target = item.tag && document.getElementById(item.tag);
+    const tag = cardEntries.get(item.key)?.item.tag;
+    const target = tag && document.getElementById(tag);
     if (!target) return;
     event.preventDefault();
     target.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -279,18 +290,64 @@ function cardFor(item) {
   return card;
 }
 
+function reconcileCards(items, keys) {
+  let changed = false;
+  for (const [key, { card }] of cardEntries) {
+    if (keys.has(key)) continue;
+    card.remove();
+    cardEntries.delete(key);
+    changed = true;
+  }
+
+  let previous = null;
+  for (const item of items) {
+    const entry = cardEntries.get(item.key);
+    let card = entry?.card;
+    if (!entry || item.html !== entry.item.html || item.labelHtml !== entry.item.labelHtml) {
+      const replacement = cardFor(item);
+      card?.replaceWith(replacement);
+      card = replacement;
+      changed = true;
+    } else if (item.href !== entry.item.href) {
+      card.querySelector(".pin-card-head > a").href = item.href;
+    }
+    const next = previous ? previous.nextElementSibling : cards.firstElementChild;
+    if (card !== next) {
+      cards.insertBefore(card, next);
+      changed = true;
+    }
+    cardEntries.set(item.key, { item, card });
+    previous = card;
+  }
+  return changed;
+}
+
 function resizeQuestion() {
   if (board.hidden) return;
   question.style.height = "auto";
   question.style.height = question.scrollHeight + question.offsetHeight - question.clientHeight + "px";
 }
 
+function resizeFormulas() {
+  if (board.hidden) return;
+  const displays = [...cards.querySelectorAll(".katex-display")];
+  for (const display of displays) display.style.fontSize = "";
+  const scales = displays.map(({ scrollWidth, clientWidth }) =>
+    // 2% slack so sub-pixel rounding does not leave a 1px scrollbar
+    clientWidth && scrollWidth > clientWidth ? Math.max(0.6, 0.98 * clientWidth / scrollWidth) : 1);
+  displays.forEach((display, i) => {
+    if (scales[i] < 1) display.style.fontSize = scales[i] * 100 + "%";
+  });
+}
+
 function render(next) {
+  const wasHidden = board.hidden;
+  let cardsChanged = false;
   if (state?.items !== next.items) {
     const keys = new Set(next.items.map((item) => item.key));
     main.querySelectorAll(".pin-btn").forEach((button) => syncButton(button, keys.has(buttonKeys.get(button))));
-    cards.replaceChildren(...next.items.map(cardFor));
-    fallback.hidden = true;
+    cardsChanged = reconcileCards(next.items, keys);
+    if (cardsChanged) fallback.hidden = true;
   }
   state = next;
   const count = state.items.length;
@@ -302,6 +359,7 @@ function render(next) {
   tab.setAttribute("aria-label", "Show pinboard (" + count + ")");
   if (question.value !== state.question) question.value = state.question;
   resizeQuestion();
+  if (cardsChanged || wasHidden) resizeFormulas();
 }
 
 let copiedTimer;
@@ -353,7 +411,15 @@ question.addEventListener("input", () => {
   const value = question.value;
   update((current) => ({ ...current, question: value }));
 });
-window.addEventListener("resize", resizeQuestion);
+cards.addEventListener("toggle", resizeFormulas, true);
+new MutationObserver((records) => {
+  if (records.some(({ target }) => target !== cards)) resizeFormulas();
+}).observe(cards, { childList: true, subtree: true });
+document.fonts?.ready.then(resizeFormulas);
+window.addEventListener("resize", () => {
+  resizeQuestion();
+  resizeFormulas();
+});
 window.addEventListener("storage", (event) => {
   if (event.key === STORAGE_KEY || event.key === null) refresh();
 });

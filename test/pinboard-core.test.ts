@@ -31,6 +31,16 @@ test("splitMacroDefs preserves supported definitions and their original comments
   ]);
 });
 
+test("splitMacroDefs splits same-line definitions only at the top level", () => {
+  const first = String.raw`\newcommand{\A}{\def\nested{a}}`;
+  const second = String.raw`\newcommand\B{b} % \newcommand{\C}{c}`;
+
+  assert.deepEqual(splitMacroDefs(first + second), [
+    { name: "\\A", text: first },
+    { name: "\\B", text: second },
+  ]);
+});
+
 test("macrosUsed follows transitive dependencies in source order", () => {
   const defs = splitMacroDefs(String.raw`\newcommand{\A}{\C}
 \newcommand{\Q}{\mathbb{Q}}
@@ -39,6 +49,16 @@ test("macrosUsed follows transitive dependencies in source order", () => {
 
   assert.deepEqual(macrosUsed(String.raw`$\B$ and $\Qbar$`, defs), [defs[0], defs[2], defs[3]]);
   assert.deepEqual(macrosUsed(String.raw`$\Qbar$`, defs), []);
+});
+
+test("macrosUsed ignores TeX comments and keeps commands after an escaped percent", () => {
+  const defs = splitMacroDefs(String.raw`\newcommand{\A}{a}
+\newcommand{\B}{% \A
+  b}`);
+
+  assert.deepEqual(macrosUsed(String.raw`\B % \A`, defs), [defs[1]]);
+  assert.deepEqual(macrosUsed(String.raw`\% \A`, defs), [defs[0]]);
+  assert.deepEqual(macrosUsed(String.raw`\\% \A`, defs), []);
 });
 
 const bookTitle = "Example notes";

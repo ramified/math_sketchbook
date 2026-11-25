@@ -236,6 +236,7 @@ body.pinboard-open { padding-bottom: 40vh; }
 .pin-card-head { font-weight: 600; }
 .pin-card-body { font-size: 0.9em; overflow-wrap: anywhere; }
 .pin-card-body .math-display { overflow-x: auto; }
+.pin-card-body .katex-display > .katex { min-width: max-content; }
 .pin-card-body img { max-width: 100%; height: auto; }
 .pin-proof { margin-top: 0.5rem; }
 .pin-proof > summary { cursor: pointer; }
@@ -247,6 +248,7 @@ body.pinboard-open { padding-bottom: 40vh; }
   margin: 0 0 0.4rem;
   padding: 0.3rem 0.45rem;
   resize: none;
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 0.25rem;
   background: var(--bg);
@@ -276,6 +278,11 @@ body.pinboard-open { padding-bottom: 40vh; }
   font: 0.9rem system-ui, sans-serif;
 }
 .pin-tab > span { margin-left: 0.3rem; }
+
+@media (width < 72rem) {
+  html:has(body.pinboard-open) { scroll-padding-bottom: 40vh; }
+  .pinboard textarea { max-height: calc(3lh + 0.6rem + 2px); }
+}
 
 @media (min-width: 72rem) {
   .pinboard {

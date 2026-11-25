@@ -1,8 +1,12 @@
-const DEFINITION_HEAD = /^\\(?:(?:newcommand|renewcommand|providecommand|DeclareMathOperator)\*?(?![A-Za-z])\s*(?:\{\s*(\\[A-Za-z]+)\s*\}|(\\[A-Za-z]+))?|g?def(?![A-Za-z])\s*(\\[A-Za-z]+)?)/;
+const DEFINITION_HEAD = /^\\(?:(?:newcommand|renewcommand|providecommand|DeclareMathOperator)(?![A-Za-z])\*?\s*(?:\{\s*(\\[A-Za-z]+)\s*\}|(\\[A-Za-z]+))?|g?def(?![A-Za-z])\s*(\\[A-Za-z]+)?)/;
 const COMMAND = /\\(?:[A-Za-z]+|[^A-Za-z\s])/g;
 
 function withoutComment(line) {
   return line.match(/^(?:\\.|[^\\%]|\\$)*/)[0];
+}
+
+function stripComments(src) {
+  return src.split(/\r?\n/).map(withoutComment).join("\n");
 }
 
 export function splitMacroDefs(src) {
@@ -23,14 +27,26 @@ export function splitMacroDefs(src) {
   for (const raw of src.split(/\r?\n/)) {
     const line = withoutComment(raw);
     if (!original.length && !line.trim()) continue;
-    if (original.length && depth === 0 && DEFINITION_HEAD.test(line.trimStart())) finish();
-    original.push(raw);
-    clean.push(line);
+    let start = 0;
     for (let i = 0; i < line.length; i++) {
-      if (line[i] === "\\") i++;
-      else if (line[i] === "{") depth++;
+      if (line[i] === "\\") {
+        const head = depth === 0 && line.slice(i).match(DEFINITION_HEAD);
+        if (head) {
+          if (line.slice(start, i).trim()) {
+            original.push(raw.slice(start, i));
+            clean.push(line.slice(start, i));
+          }
+          if (original.length) finish();
+          start = i;
+          i += head[0].length - 1;
+        } else {
+          i++;
+        }
+      } else if (line[i] === "{") depth++;
       else if (line[i] === "}") depth--;
     }
+    original.push(raw.slice(start));
+    clean.push(line.slice(start));
     if (depth <= 0) {
       const chunk = clean.join("\n").trim();
       const head = chunk.match(DEFINITION_HEAD);
@@ -56,11 +72,11 @@ export function macrosUsed(text, defs) {
     }
   }
 
-  visit(text);
+  visit(stripComments(text));
   // Set iteration also visits dependencies discovered along the way.
   for (const name of needed) {
     for (const def of byName.get(name)) {
-      visit(def.split(/\r?\n/).map(withoutComment).join("\n").trimStart().replace(DEFINITION_HEAD, ""));
+      visit(stripComments(def).trimStart().replace(DEFINITION_HEAD, ""));
     }
   }
   return defs.filter((def) => needed.has(def.name));

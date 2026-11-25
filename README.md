@@ -22,3 +22,4 @@ Full guide: [docs/GUIDE.md](docs/GUIDE.md).
   [MathHelm](https://mathhelm.org/t/390/maybe-we-have-overestimated-the-difficulty-of-riemann-hypothesis).
   Local copy: [docs/references/GRH-natural-language-outline.pdf](docs/references/GRH-natural-language-outline.pdf).
 - L. Alpöge, *Remark*, <https://alpo.ge/remark.pdf>; Lean source: <https://github.com/Deicyde/riemann-hypothesis>.
+- https://mathoverflow.net/questions/518068/where-to-begin-understanding-the-proof-of-the-riemann-hypothesis

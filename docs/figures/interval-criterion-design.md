@@ -1,8 +1,10 @@
 # Figure design: geometry of the interval criterion (Proposition 1.4.7, tag 8JP5)
 
-Purpose: show the two cases of Step 3 of the proof. Two separate panels (two SVG files), no titles inside
-the SVGs (titles are written in LaTeX in the proof). Schematic, not to scale (in reality σ is much larger
-than 1 and all poles lie in 0 < Re s < 1).
+Purpose: show the two cases (a) and (b) in the proof of the lower bound for the Taylor coefficients (tag 8JT5),
+one of the two lemmas behind the interval criterion. Two separate panels (two SVG files), no titles inside
+the SVGs. Each panel has its own example in the book, with the caption as its text: 8JT8 (case a) and 8JT9
+(case b); the proof links to them. Schematic, not to scale (in reality σ is much larger than 1 and all poles lie
+in 0 < Re s < 1).
 
 ## Common to both panels
 
@@ -61,7 +63,8 @@ Check: D = 2.8 < D* = 4; other poles: horizontal distance ≥ 3.4 ≥ D and Eucl
 - Generator: `scripts/plot-interval-criterion.mjs` (Node ESM, no dependencies), run with
   `node scripts/plot-interval-criterion.mjs`, printing the checks above.
 
-## Use in the proof (LaTeX titles above each image)
+## Use in the book
 
-- Case (a): `\textbf{(a)} Case (a): $z = \sigma + i\tau$ is closer to $\rho_1$ than $\sigma$ is to any pole; $\rho_1$ and $\bar\rho_1$ are equally close to $\sigma$.`
-- Case (b): `\textbf{(b)} Case (b): the pole nearest to $\sigma$ is the real pole $\beta = \sigma - D$, and every pole lies in $\Re s \le \sigma - D$.`
+Each panel is the image of an unlisted example whose text is the caption, linked from the proof of 8JT5 with
+`\hyperref[8JT8]{picture of case (a)}` and `\hyperref[8JT9]{picture of case (b)}`. The kernel graphs
+`gamma-kernel-a.svg` and `gamma-kernel-b.svg` follow the same pattern (examples 8JT6 and 8JT7).

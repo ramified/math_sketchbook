@@ -117,3 +117,22 @@ test("includegraphics: local figures only, width and alt options", () => {
     assert.ok(!r.html.includes("<img"), bad);
   }
 });
+
+test("inline math keeps touching punctuation on its line", () => {
+  // "(" before and ")." after go into one no-wrap span with the formula
+  const a = renderTex(String.raw`one ($x = 1$). Next`, macros).html;
+  assert.match(a, /^<p>one <span class="math-nobr">\(<span class="katex">/);
+  assert.match(a, /<\/span>\)\.<\/span> Next<\/p>$/);
+  // spaces on both sides: no wrapper, but the formula's last piece is still held
+  const b = renderTex(String.raw`one $x + y$ two`, macros).html;
+  assert.ok(!b.includes("math-nobr"));
+  assert.equal(b.match(/class="katex-tail"/g)?.length, 1);
+  assert.match(b, /<span class="katex-tail"><span class="katex-base">[\s\S]*<\/span><\/span><\/span><\/span> two<\/p>$/);
+  // only punctuation is glued (not "-functions"), and typography still applies to it
+  const c = renderTex("the $L$-functions and ``$y$''", macros).html;
+  assert.equal(c.match(/class="math-nobr"/g)?.length, 1);
+  assert.match(c, /<\/span>-functions and <span class="math-nobr">“<span class="katex">/);
+  assert.match(c, /<\/span>”<\/span><\/p>$/);
+  // display math is untouched
+  assert.ok(!renderTex(String.raw`\[ x = 1 \]`, macros).html.includes("katex-tail"));
+});

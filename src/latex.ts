@@ -156,11 +156,27 @@ class Renderer {
     }
   }
 
+  inlineMath(n: Node): string {
+    const s = this.slice(n);
+    const inner = s.startsWith("$") ? s.slice(1, -1) : s.slice(2, -2);
+    return holdLastBase(this.math(inner, false, n));
+  }
+
   /** Turn a node list into segments: inline html, block html, and paragraph breaks. */
   segs(nodes: Node[] | undefined): Seg[] {
     const out: Seg[] = [];
     let text = "";
+    // Inline math waits for the text right after it, so it can be glued to the punctuation on both sides.
+    let pending: { lead: string; html: string } | null = null;
+    const settle = () => {
+      if (!pending) return;
+      const trail = MATH_TRAIL_RE.exec(text)?.[0] ?? "";
+      text = text.slice(trail.length);
+      out.push({ kind: "inline", html: glueMath(pending.lead, pending.html, trail) });
+      pending = null;
+    };
     const flush = () => {
+      settle();
       if (text) out.push({ kind: "inline", html: typography(text) });
       text = "";
     };
@@ -178,6 +194,14 @@ class Renderer {
           flush();
           out.push({ kind: "par", html: "" });
           break;
+        case "inlinemath": {
+          settle();
+          const lead = MATH_LEAD_RE.exec(text)?.[0] ?? "";
+          text = text.slice(0, text.length - lead.length);
+          flush();
+          pending = { lead, html: this.inlineMath(n) };
+          break;
+        }
         default:
           flush();
           out.push(...this.node(n));
@@ -193,11 +217,8 @@ class Renderer {
 
   node(n: Node): Seg[] {
     switch (n.type) {
-      case "inlinemath": {
-        const s = this.slice(n);
-        const inner = s.startsWith("$") ? s.slice(1, -1) : s.slice(2, -2);
-        return [{ kind: "inline", html: this.math(inner, false, n) }];
-      }
+      case "inlinemath":
+        return [{ kind: "inline", html: this.inlineMath(n) }];
       case "displaymath": {
         const s = this.slice(n);
         const inner = s.startsWith("$$") ? s.slice(2, -2) : s.slice(2, -2);
@@ -368,6 +389,35 @@ function typography(raw: string): string {
     .replace(/[ \t\r\n]+/g, " ")
     .replace(/~/g, " ");
   return escapeHtml(t);
+}
+
+/**
+ * Browsers may break a line right after an inline formula, even before "." or ")", because KaTeX builds it from
+ * inline-blocks. Chrome takes the rule for that break from the parent of the formula's last piece, so wrap that
+ * piece in a no-wrap span (style.css). The formula can still break between its earlier pieces.
+ */
+function holdLastBase(html: string): string {
+  const open = '<span class="katex-base">';
+  const close = "</span></span>"; // end of .katex-html and of .katex
+  const i = html.lastIndexOf(open);
+  if (i < 0 || !html.endsWith(close)) return html;
+  const j = html.length - close.length;
+  if (html.slice(i, j).includes("katex-newline")) return html;
+  return `${html.slice(0, i)}<span class="katex-tail">${html.slice(i, j)}</span>${html.slice(j)}`;
+}
+
+/** Opening punctuation right before inline math, and closing punctuation right after it (raw TeX text). */
+const MATH_LEAD_RE = /[([`‘“]+$/;
+const MATH_TRAIL_RE = /^[.,;:!?)\]'’”]+/;
+
+/**
+ * Inline math with the punctuation touching it, such as "(" before or ")." after, in one no-wrap span, so neither
+ * "(" ends a line nor "." starts one. style.css lets the formula itself still break inside the span. Words and
+ * hyphens ("$L$-functions") are left out: in a no-wrap span they would only lose their own break points.
+ */
+function glueMath(lead: string, math: string, trail: string): string {
+  if (!lead && !trail) return math;
+  return `<span class="math-nobr">${typography(lead)}${math}${typography(trail)}</span>`;
 }
 
 /**

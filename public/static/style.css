@@ -133,6 +133,10 @@ details.proof > summary { cursor: pointer; }
 .tex-figure { margin: 0.8rem 0; text-align: center; }
 .tex-figure img { max-width: 100%; height: auto; }
 .katex-display { margin: 0.4rem 0; }
+/* Inline math glued to touching punctuation (src/latex.ts): no break next to "(" or ".", breaks inside the formula. */
+.math-nobr { white-space: nowrap; }
+.math-nobr .katex-html { white-space: normal; }
+.katex-tail { white-space: nowrap; }
 .math-error, .ref-broken, .tex-unknown { color: var(--error); font-family: ui-monospace, Consolas, monospace; font-size: 0.85em; }
 .math-error.display { display: block; white-space: pre-wrap; }
 .item-label { font-weight: 600; margin-left: -0.2em; }

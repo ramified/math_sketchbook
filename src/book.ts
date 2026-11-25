@@ -35,7 +35,7 @@ export interface Ctx {
 }
 
 /** Bump when the LaTeX renderer changes: all cached HTML is then re-rendered on the next request. */
-export const RENDER_VERSION = "4";
+export const RENDER_VERSION = "5";
 
 export function typeName(t: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);

@@ -1,0 +1,5 @@
+Generalized Lemma 2.1.2 to real \(k\ge0\) and made the existing applications explicit at \(k=3\). The new example `8JVN` uses \(k=1\) and four cosets. Its largest error is \(3/5\) against the bound \(4/5\), and changing one shift attains the bound.
+
+The checker independently verified every numerical claim on a temporary SQLite copy of the designated backup and printed **`ALL CHECKS PASSED`**. It confirmed that reapplication was rejected without writes, found zero TeX warnings, and estimated the widest display at 560.5 px. All 25 tests passed with `NODE_OPTIONS=--test-isolation=none` because the default runner hit a process-spawn restriction.
+
+Wrote only the [SQL patch](<G:/我的大学材料/文件/个人练习/文件类/github/math_sketchbook/scripts/coset-average-general-2026-11-25.sql>), [checker](<G:/我的大学材料/文件/个人练习/文件类/github/math_sketchbook/implement_plan/tasks/2026-11-25-coset-average-general.check.mjs>), and [report](<G:/我的大学材料/文件/个人练习/文件类/github/math_sketchbook/implement_plan/tasks/2026-11-25-coset-average-general.md.report.md>).

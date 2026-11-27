@@ -1,8 +1,8 @@
 ﻿// Draws the kernel K_k(u) = u^k e^{-σu}/k! used in the one-sided bound (lemma 8JT2), as two separate panels without
 // titles (the titles are written in LaTeX in the proof, so KaTeX renders the formulas):
 // (a) K_1, K_2, K_3 with σ = 1: the peak sits at u = k/σ.
-// (b) K_k for k = 3, 30, 300, rescaled to peak height 1 and plotted against u/U where k = (5/4)σU:
-//     the peak is at the midpoint 5/4 of the window W = [1, 3/2] (i.e. Y <= x <= Y^{3/2}), and it gets sharper as k grows.
+// (b) K_k for k = 3, 30, 300, rescaled to peak height 1 and plotted against u/U where k = σU:
+//     the peak is at the centre 1 of the window W = [1-a, 1+a] with a = 1/5 (i.e. Y^{4/5} <= x <= Y^{6/5}), and it gets sharper as k grows.
 // Output: public/static/figures/gamma-kernel-a.svg, gamma-kernel-b.svg      Run: node scripts/plot-gamma-kernel.mjs
 import { writeFileSync, mkdirSync, rmSync } from "node:fs";
 
@@ -70,25 +70,25 @@ panel({
 });
 panels.a = { body: out.join("\n"), aria: "The kernels K_1, K_2, K_3 for sigma = 1, with dashed lines at their peaks u = 1, 2, 3" };
 
-// (b) rescaled kernels against u/U, with k = (5/4)σU; peak height normalised to 1.
-const norm = (k) => (t) => { // t = u/U, u = t·U, k/σ = (5/4)U  =>  K_k(u)/K_k(k/σ) = (t/(5/4))^k e^{-k(t/(5/4) - 1)}
-  const r = t / 1.25; return r <= 0 ? 0 : Math.exp(k * (Math.log(r) - r + 1));
+// (b) rescaled kernels against u/U, with k = σU; peak height normalised to 1.
+const norm = (k) => (t) => { // t = u/U, u = t·U, k/σ = U  =>  K_k(u)/K_k(k/σ) = t^k e^{-k(t - 1)}
+  const r = t; return r <= 0 ? 0 : Math.exp(k * (Math.log(r) - r + 1));
 };
 out = [];
 panel({
-  y0: TOP, xmin: 0, xmax: 2.5, ymin: 0, ymax: 1.1,
-  xticks: [{ v: 0, s: "0" }, { v: 0.5, s: "U/2" }, { v: 1, s: "U" }, { v: 1.25, s: "5U/4" }, { v: 1.5, s: "3U/2" }, { v: 2, s: "2U" }, { v: 2.5, s: "5U/2" }],
+  y0: TOP, xmin: 0, xmax: 2, ymin: 0, ymax: 1.1,
+  xticks: [{ v: 0, s: "0" }, { v: 0.5, s: "U/2" }, { v: 0.8, s: "4U/5" }, { v: 1, s: "U" }, { v: 1.2, s: "6U/5" }, { v: 1.5, s: "3U/2" }, { v: 2, s: "2U" }],
   yticks: [0, 0.25, 0.5, 0.75, 1].map((v) => ({ v, s: v === 0 || v === 1 ? String(v) : v.toFixed(2) })),
   xlabel: "u", label: "",
-  band: { a: 1, b: 1.5, label: "W" },
+  band: { a: 0.8, b: 1.2, label: "W" },
   curves: [
     { cls: "c3", fn: norm(3), name: "k = 3" },
     { cls: "c4", fn: norm(30), name: "k = 30" },
     { cls: "c5", fn: norm(300), name: "k = 300" },
   ],
-  vlines: [{ x: 1.25, cls: "mid", label: "midpoint" }],
+  vlines: [{ x: 1, cls: "mid", label: "centre" }],
 });
-panels.b = { body: out.join("\n"), aria: "Rescaled kernels for k = 3, 30, 300 with their peak at 5U/4, the midpoint of the shaded interval W = [U, 3U/2]" };
+panels.b = { body: out.join("\n"), aria: "Rescaled kernels for k = 3, 30, 300 with their peak at U, the centre of the shaded interval W = [4U/5, 6U/5]" };
 
 const svgOf = (pnl) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${pnl.aria}">
 <style>

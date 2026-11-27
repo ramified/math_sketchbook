@@ -17,7 +17,20 @@
 - Full text: `implement_plan/tasks/2026-11-27-chapter3-self-contained.md.report.md`.
 - Local verifier: `python -I scripts/check-chapter3-self-contained-2026-11-27.py`. It needs `backup-before-chebyshev-chapter-2026-11-27.sql`, which is gitignored. On another computer, export a fresh copy first; see the note under step 3.
 
-## Step 1: independent proof check (was interrupted)
+## Proof-check result (done 27 Nov, codex gpt-6.2-sol)
+
+Full output: re-run it if needed. The findings, ranked by severity:
+
+- **Chapter 3 checks out.** 8JU7, C3R2, 8JVH (i)/(ii), C3T2 and 8JUV are correct, and so is the use of 8JVG in 8JVE/8JVF/8JUD/8JVJ. The quantifiers are: exists Y, for all x in the window, there exists a tuple. The primes may vary with x. The constant 61/8 and the threshold (3o+28)^{8/(11 eps)} were rechecked.
+- **Citations:**
+  - McCurley Thm 1, Bennett et al. Prop 1.11, Thorner-Zaman Thm 1.1 (arXiv v2: theta values, V_b and the error exponents all match) and Behrend: all match.
+  - Montgomery 12.2: the notes' (Q^2T)^{5(1-sigma)/2}(log)^{14} is a valid weakening of the reported 2(1-sigma)/sigma form for sigma >= 4/5. The original page was not seen.
+- **Fixes needed, both in Chapter 4 / the 8JVG justification only:**
+  1. The cohomological cutoff must be **1 <= r < floor(x^{400})** (Adriazola Def. 18.1(D6)), not r < x^{400}. Fix the 8JU8 edit and the handoff text at report lines ~176-179 and ~577.
+  2. Add one sentence identifying the source's excess with 8JVG's count. Take upsilon_t = a_t, a_E = xb, and S_0 = {p : p | N, p != d} in Adriazola (3.10). For those p, (p/d) = 1 by reciprocity and the supplement at 2, so their cosets lie in Phi, and the coset at d gives the single contribution.
+- 8JVG remains conditional on Adriazola's Hypotheses 17.11 and 18.10. This is known; it is the black box.
+
+## Step 1: independent proof check (done; kept for re-runs)
 
 The first run hung: the codex process had no network connection after a DNS outage. Run it again, from the repository root:
 

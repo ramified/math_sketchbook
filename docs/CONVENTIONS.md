@@ -29,3 +29,15 @@ Every new task spec must require following this file.
 - Use `\ln` for logarithms and `\le` for the slanted inequality. The shared macros map `\le`, `\leq`, `\ge`, and `\geq` to their slanted forms.
 - Reserve $\psi$ for characters and write $\Psi_\chi$ for the generalized Chebyshev function. Use calligraphic letters for family-level objects, pairing $G_\chi$ with $\mathcal G_\psi$ and $H_\chi=\mathcal M G_\chi$ with $\mathcal H_\psi=\mathcal M\mathcal G_\psi$.
 - Prefer `align*` for multiline displays and case splits, with conditions in a right column introduced by `&&`.
+
+## Additions recorded 2026-11-26 (from edits made on another machine, 2026-11-25/26)
+
+- Write products with a single-letter factor that can be read as a word with `\cdot`: `o\cdot r`, `k\cdot o+1`, never `or`, `ko+1`. (The user's own manual edit of `8JVA` changed `or` to `o \cdot r`; a later codex pass reverted it and had to be fixed. Do not undo the user's manual edits.)
+- Define a map by giving its domain and codomain, on one display row: `c_k\colon\widehat{A/A_0}\longrightarrow(0,1],\qquad \xi\longmapsto\dots`. Do not split a map definition over an `aligned` block. Two short parallel definitions go on one row separated by `\qquad`, e.g. `\lambda_C=\dots,\qquad \mu_C=\dots`.
+- Write sets in set-builder form with their ambient set and a middle bar: `\left\{\xi\in\widehat B \;\middle|\; \xi|_{A_0}=1\right\}`.
+- Give each introduced quantity its type or range: "for real $z\ge1$, put $\Theta(z)=\dots\in[0,\infty)$", "for $v\in(0,a]$", "for any $u\in A_0$, $t\in T$ and integer $1\le j\le m$". Use "any" in hypotheses ("$A_0$ any subgroup of index $o$").
+- Say where every symbol used in a statement comes from: "Use $B,\Phi,f$ from \ref{8JVP} and the data of \ref{8JVQ}". Replace "since …" in proofs by the reference that gives the fact ("by $p_t$ in \ref{8JU9}").
+- Keep the target before the observed quantity in comparisons: $|\lambda_C-\mu_C|$, listing $(\lambda_C)_C$ before $(\mu_C)_C$.
+- Prefer a general lemma with a parameter over one with a hard-coded constant: state the coset-average lemma for any real $k\ge0$ and apply it "with $k=3$" where needed.
+- Split a definition that bundles objects with different roles into separate definitions (e.g. residue groups `8JVC`, quadratic coordinates `8JVP`, prime-power data `8JVQ`).
+- Organize chapters by logical step: general finite-group tools in their own section, followed by the arithmetic application, each with a small worked numerical example (e.g. `8JVN`, a table of averages, targets and errors).

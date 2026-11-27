@@ -173,7 +173,7 @@ S_{\ell,r}(E)=\ker\left(
  \longrightarrow \prod_{v\mid\ell}H^1(E_v,\Q_\ell/\Z_\ell(-r))
 \right).
 $$
-For the admissible data at $x$ in \ref{C4S2}, let $s=x^{400}$ and $b=\exp(x^\varepsilon)$. For every finite set $S$ of primes the groups in the sum are finite and satisfy
+For the admissible data at $x$ in \ref{C4S2}, let $s=\lfloor x^{400}\rfloor$ and $b=\exp(x^\varepsilon)$. For every finite set $S$ of primes the groups in the sum are finite and satisfy
 $$
 \sum_{\ell\in S}(\ln\ell)\sum_{1\le r<s}
  \operatorname{length}_{\Z_\ell} S_{\ell,r}(E)\le\sqrt b.
@@ -586,7 +586,7 @@ A bound for each translate
 
 \emph{(2) Eliminate the common slope.} Divisibility gives a lower bound for the mean quotient slope after subtracting map heights. A Bost-type inequality gives an upper bound for that slope in terms of the common lattice slope. Subtraction eliminates the slopes. Cohomological lengths bound the loss in divisibility, while the covolume, rank and height estimates bound the other losses.
 
-\emph{(3) Identify the centered count.} The logarithms of the weights $w_{u,j}(\alpha)$ from \ref{C4W2} in the divisibility threshold give the average over $\alpha\in\Phi$. The geometric normalizations cancel as in \ref{8JUC}, leaving the sum of the main terms $M(\upsilon_t,w_{u,j})$ of \ref{8JU9}. The resulting estimate on the centered count is the one in \cite[Section 12, (12.2)]{Outline}. Compare \cite[Corollary 3.4 and Theorem A(ii)]{Adriazola}, where Section 18.6 obtains the stronger power $x^{3\varepsilon}$ under the chain-record hypotheses. With the fixed exponents here, $x^{3\varepsilon}\le x^{(e_D+e_L+3)\varepsilon}$ for $x\ge1$.
+\emph{(3) Identify the centered count.} The logarithms of the weights $w_{u,j}(\alpha)$ from \ref{C4W2} in the divisibility threshold give the average over $\alpha\in\Phi$. The geometric normalizations cancel as in \ref{8JUC}, leaving the sum of the main terms $M(\upsilon_t,w_{u,j})$ of \ref{8JU9}. The resulting estimate on the centered count is the one in \cite[Section 12, (12.2)]{Outline}. Compare \cite[Corollary 3.4 and Theorem A(ii)]{Adriazola}, where Section 18.6 obtains the stronger power $x^{3\varepsilon}$ under the chain-record hypotheses. In \cite[(3.10)]{Adriazola}, take $\upsilon_t=a_t$, $a_E=xb$ and $S_0=\{p : p\mid N,\ p\ne d\}$. For these $p$ we have $(p/d)=1$ by quadratic reciprocity and its supplement at $2$, so their cosets lie in $\Phi$, and the coset at $d$ gives the single remaining contribution. Thus the excess there is the centered count of \ref{8JVF}. With the fixed exponents here, $x^{3\varepsilon}\le x^{(e_D+e_L+3)\varepsilon}$ for $x\ge1$.
 
 Take $x_{\rm div}$ to be the maximum of $x_{\rm wt}$ and the thresholds used in \cite[Section 18.6, proof of Theorem A]{Adriazola} to apply the comparison to the chain records of \ref{C4S2}. Include the threshold for the scale inequalities in \ref{8JUG}. The record constants and $J$ are fixed by $\psi,\varepsilon$, so $x_{\rm div}$ is uniform in the window.
 ```

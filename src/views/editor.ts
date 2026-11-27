@@ -153,7 +153,9 @@ export function sectionEditPage(ctx: Ctx, s: SectionRow): string {
   <input type="hidden" name="revision" value="${s.revision}">
   <div class="meta-grid">
     <label class="span2">Title <input name="title" value="${s.title}"></label>
-    ${s.kind === "section" ? html`<label>Chapter <select name="parent_id">${options(chapters.map((c) => ({ value: c.id, label: `${c.number} ${c.title}` })), s.parent_id ?? undefined)}</select></label>` : ""}
+    ${s.kind === "section"
+      ? html`<label>Chapter <select name="parent_id">${options(chapters.map((c) => ({ value: c.id, label: `${c.number} ${c.title}` })), s.parent_id ?? undefined)}</select></label>`
+      : html`<label class="checkbox"><input type="checkbox" name="appendix"${s.appendix ? raw(" checked") : ""}> Appendix (numbered A, B, …)</label>`}
     <label>Position <select name="place_after_static">
       <option value="keep">(keep current position)</option><option value="start">At the beginning</option>
       ${siblings.filter((x) => x.id !== s.id).map((x) => html`<option value="${x.id}">After ${x.number} ${x.title}</option>`)}

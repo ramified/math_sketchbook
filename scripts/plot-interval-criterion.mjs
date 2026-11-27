@@ -64,15 +64,15 @@ const commonForeground = [
   ]),
   circle("pole", sigma, 3),
   label("Re s = θ", [theta, YMAX], 4, -8),
-  label("Re s = σ", [sigma[0], YMAX], 4, -8),
+  label("Re s = c", [sigma[0], YMAX], 4, -8),
   label("Re s &gt; θ", [theta, -2.65], 7, 0, "start", "var bandlabel"),
   label(`D${sub("*")}`, [(theta + sigma[0]) / 2, -3.0], 0, 17, "middle"),
-  label("σ", sigma, 8, 16),
+  label("c", sigma, 8, 16),
 ];
 
 const panels = {
   a: {
-    aria: "Case (a). The dashed circle centered at sigma passes through both highlighted conjugate poles. The smaller blue circle centered at z reaches only the upper highlighted pole.",
+    aria: "Case (a). The dashed circle centered at c passes through both highlighted conjugate poles. The smaller blue circle centered at z reaches only the upper highlighted pole.",
     body: [
       ...common,
       `<g clip-path="url(#plot)">`,
@@ -88,13 +88,13 @@ const panels = {
       circle("blue-point", z, 4),
       label(`ρ${sub("1")}`, rho, -9, -4, "end"),
       label(`<tspan text-decoration="overline" style="text-decoration: overline">ρ</tspan>${sub("1")}`, rhoBar, -9, 10, "end"),
-      label("z = σ + iτ", z, 9, 4, "start", "var blue-label"),
+      label("z = c + iy", z, 9, 4, "start", "var blue-label"),
       label("D", midpoint(sigma, rhoBar), 0, 16, "middle"),
       label("d", midpoint(z, rho), 0, -6, "middle", "var blue-label"),
     ].join("\n"),
   },
   b: {
-    aria: "Case (b). The dashed circle centered at sigma reaches the real pole beta. Every other pole lies left of the dotted vertical line through beta.",
+    aria: "Case (b). The dashed circle centered at c reaches the real pole beta. Every other pole lies left of the dotted vertical line through beta.",
     body: [
       ...common,
       line("limit", [beta[0], -3.1], [beta[0], 3.1]),
@@ -105,9 +105,9 @@ const panels = {
       ...commonForeground,
       ...otherPolesB.map((pole) => circle("pole", pole, 4)),
       circle("highlight", beta, 5),
-      label("β = σ − D", beta, 8, 18),
+      label("β = c − D", beta, 8, 18),
       label("D", midpoint(sigma, beta), 0, -7, "middle"),
-      label("Re s = σ − D", [beta[0], 3.0], 6, 5),
+      label("Re s = c − D", [beta[0], 3.0], 6, 5),
     ].join("\n"),
   },
 };

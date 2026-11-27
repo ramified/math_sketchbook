@@ -120,7 +120,7 @@ const panels = {};
   const Y = (v) => TOP + PH - ((Math.log10(v) - LMIN) / (LMAX - LMIN)) * PH;
   const out = [];
   frame(out, {
-    X, Y, xlabel: I("τ"),
+    X, Y, xlabel: I("y"),
     xticks: [0, 10, 20, 30, 40, 50].map((v) => ({ v, s: String(v) })),
     yticks: [-5, -4, -3, -2, -1, 0].map((e) => ({ v: 10 ** e, s: e === 0 ? "1" : `10<tspan class="sup" dy="-6">${e}</tspan>` })),
   });
@@ -132,8 +132,8 @@ const panels = {};
     for (let i = 0; i <= NT; i++) { const t = (TMAX * i) / NT; p.push([X(t), Y(C.abs(A_poles(k, [sigma, t], zeros, 2000)))]); }
     out.push(poly(cls[j], p));
   });
-  legend(out, [{ text: `|${I("A")}${SUB(I("k"))}(3/2 + ${I("i")}${I("τ")})| for`, w: 130 }, ...ks.map((k, j) => ({ cls: cls[j], name: `${I("k")} = ${k}`, w: 50 }))]);
-  panels.c = { body: out.join("\n"), aria: "|A_k(3/2 + i tau)| for k = 0, 1, 2, 3 and tau from 0 to 50 on a logarithmic scale; dotted vertical lines at the heights of the zeros of zeta; as k grows the curves develop peaks of height about 1/|rho|^2 at those heights" };
+  legend(out, [{ text: `|${I("A")}${SUB(I("k"))}(3/2 + ${I("i")}${I("y")})| for`, w: 130 }, ...ks.map((k, j) => ({ cls: cls[j], name: `${I("k")} = ${k}`, w: 50 }))]);
+  panels.c = { body: out.join("\n"), aria: "|A_k(3/2 + iy)| for k = 0, 1, 2, 3 and y from 0 to 50 on a logarithmic scale; dotted vertical lines at the heights of the zeros of zeta; as k grows the curves develop peaks of height about 1/|rho|^2 at those heights" };
   const at = (k, t) => C.abs(A_poles(k, [sigma, t], zeros, 2000));
   console.log("(c) |A_k| at tau = gamma_1:", ks.map((k) => at(k, zeros[0]).toExponential(2)).join(", "), "  1/|rho_1|^2 =", (1 / (0.25 + zeros[0] ** 2)).toExponential(2));
 }

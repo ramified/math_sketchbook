@@ -57,20 +57,32 @@ export async function loadSettings(db: D1Database): Promise<Record<string, strin
   return Object.fromEntries(results.map((r) => [r.key, r.value]));
 }
 
+function appendixLetter(index: number): string {
+  let letters = "";
+  while (index > 0) {
+    index--;
+    letters = String.fromCharCode(65 + (index % 26)) + letters;
+    index = Math.floor(index / 26);
+  }
+  return letters;
+}
+
 export async function loadBook(db: D1Database, includeHidden: boolean): Promise<Book> {
   const [secs, ress] = await db.batch([
-    db.prepare("SELECT id, tag, parent_id, kind, title, position FROM sections ORDER BY position, id"),
+    db.prepare("SELECT id, tag, parent_id, kind, title, position, appendix FROM sections ORDER BY position, id"),
     db.prepare("SELECT id, tag, type, title, section_id, position, visibility, state, listed FROM results ORDER BY position, id"),
   ]);
-  const sections = secs.results as Pick<SectionRow, "id" | "tag" | "parent_id" | "kind" | "title" | "position">[];
+  const sections = secs.results as Pick<SectionRow, "id" | "tag" | "parent_id" | "kind" | "title" | "position" | "appendix">[];
   const results = ress.results as Pick<ResultRow, "id" | "tag" | "type" | "title" | "section_id" | "position" | "visibility" | "state" | "listed">[];
 
   const book: Book = { chapters: [], sectionsOf: new Map(), resultsOf: new Map(), byTag: new Map(), sectionById: new Map() };
+  const chapters = sections.filter((s) => s.kind === "chapter").sort((a, b) => a.appendix - b.appendix);
   let chapterNo = 0;
-  for (const ch of sections.filter((s) => s.kind === "chapter")) {
-    chapterNo++;
+  let appendixNo = 0;
+  for (const ch of chapters) {
+    const number = ch.appendix ? appendixLetter(++appendixNo) : String(++chapterNo);
     const chEntry: Entry = {
-      tag: ch.tag, id: ch.id, kind: "chapter", number: String(chapterNo), label: `Chapter ${chapterNo}`,
+      tag: ch.tag, id: ch.id, kind: "chapter", number, label: `${ch.appendix ? "Appendix" : "Chapter"} ${number}`,
       title: ch.title, parentId: null, hidden: false, listed: true,
     };
     book.chapters.push(chEntry);
@@ -80,7 +92,7 @@ export async function loadBook(db: D1Database, includeHidden: boolean): Promise<
     let secNo = 0;
     for (const s of sections.filter((x) => x.kind === "section" && x.parent_id === ch.id)) {
       secNo++;
-      const num = `${chapterNo}.${secNo}`;
+      const num = `${number}.${secNo}`;
       const e: Entry = { tag: s.tag, id: s.id, kind: "section", number: num, label: `Section ${num}`, title: s.title, parentId: ch.id, hidden: false, listed: true };
       subs.push(e);
       book.byTag.set(s.tag, e);

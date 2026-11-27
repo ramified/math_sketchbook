@@ -107,6 +107,8 @@
     if (form.querySelector('[name="intro_tex"]')) {
       data.intro_tex = val("intro_tex");
       if (val("parent_id") !== undefined) data.parent_id = Number(val("parent_id"));
+      const appendixBox = form.querySelector('[name="appendix"]');
+      if (appendixBox) data.appendix = appendixBox.checked;
       return data;
     }
     data.type = val("type");

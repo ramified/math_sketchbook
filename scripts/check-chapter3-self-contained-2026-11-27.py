@@ -8,7 +8,7 @@ import subprocess
 
 
 ROOT = Path(__file__).resolve().parent.parent
-BACKUP = ROOT / "backup-before-chebyshev-chapter-2026-11-27.sql"
+BACKUP = ROOT / "backup-before-chapter3-self-contained-2026-11-27.sql"
 CHEBYSHEV = ROOT / "scripts/chebyshev-chapter-2026-11-27.sql"
 MIGRATION = ROOT / "scripts/chapter3-self-contained-2026-11-27.sql"
 RENDERER = ROOT / "scripts/check-chapter3-self-contained-2026-11-27.mjs"
@@ -46,7 +46,6 @@ def baseline():
     apply_sql(db, BACKUP)
     db.execute("PRAGMA foreign_keys=ON")
     assert db.execute("PRAGMA foreign_key_check").fetchall() == []
-    apply_sql(db, CHEBYSHEV)
     return db
 
 

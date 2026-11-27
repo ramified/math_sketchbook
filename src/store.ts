@@ -347,7 +347,7 @@ export async function createSection(db: D1Database, author: string, body: Record
     db.prepare("INSERT INTO tags (tag, kind) VALUES (?, 'section')").bind(tag),
     db.prepare(`INSERT INTO sections (id, tag, parent_id, kind, title, intro_tex, position, created_at, updated_at, updated_by)
                 VALUES (?, ?, ?, ?, ?, '', ?, ?, ?, ?)`).bind(id, tag, parentId, kind, title, pos, ts, ts, author),
-    revisionRow(db, "section", id, 1, crypto.randomUUID(), { tag, kind, title, intro_tex: "", parent_id: parentId, position: pos }, author),
+    revisionRow(db, "section", id, 1, crypto.randomUUID(), { tag, kind, title, intro_tex: "", parent_id: parentId, position: pos, appendix: 0 }, author),
   ]);
   return tag;
 }
@@ -358,6 +358,7 @@ export async function saveSection(db: D1Database, author: string, tag: string, b
   const revision = int(body.revision, "revision");
   const title = str(body.title, 300, "Title").trim() || "Untitled";
   const placeAfter = parsePlaceAfter(body.place_after);
+  const appendix = s.kind === "chapter" && body.appendix !== undefined ? Number(Boolean(body.appendix)) : s.appendix;
   let parentId = s.parent_id;
   if (s.kind === "section") {
     parentId = int(body.parent_id, "chapter");
@@ -373,7 +374,7 @@ export async function saveSection(db: D1Database, author: string, tag: string, b
   const op = crypto.randomUUID();
   const stmts: D1PreparedStatement[] = [
     guard(db, "sections", s.id, revision),
-    baselineRow(db, "section", s.id, s.revision, op, { tag, kind: s.kind, title: s.title, intro_tex: s.intro_tex, parent_id: s.parent_id, position: s.position }, s.updated_by),
+    baselineRow(db, "section", s.id, s.revision, op, { tag, kind: s.kind, title: s.title, intro_tex: s.intro_tex, parent_id: s.parent_id, position: s.position, appendix: s.appendix }, s.updated_by),
   ];
   const siblings = (await db.prepare("SELECT id FROM sections WHERE parent_id IS ? ORDER BY position, id").bind(parentId).all<{ id: number }>()).results.map((r) => r.id);
   let order = placeInOrder(siblings, s.id, placeAfter);
@@ -387,9 +388,9 @@ export async function saveSection(db: D1Database, author: string, tag: string, b
   }
   const ts = now();
   stmts.push(
-    db.prepare(`UPDATE sections SET title=?, intro_tex=?, intro_html_cache=?, parent_id=?, position=?, revision=revision+1,
-                updated_at=?, updated_by=? WHERE id=?`).bind(title, intro, out.html, parentId, newPosition, ts, author, s.id),
-    revisionRow(db, "section", s.id, revision + 1, op, { tag, kind: s.kind, title, intro_tex: intro, parent_id: parentId, position: newPosition }, author),
+    db.prepare(`UPDATE sections SET title=?, intro_tex=?, intro_html_cache=?, parent_id=?, position=?, appendix=?, revision=revision+1,
+                updated_at=?, updated_by=? WHERE id=?`).bind(title, intro, out.html, parentId, newPosition, appendix, ts, author, s.id),
+    revisionRow(db, "section", s.id, revision + 1, op, { tag, kind: s.kind, title, intro_tex: intro, parent_id: parentId, position: newPosition, appendix }, author),
   );
   await runBatch(db, stmts);
   return { warnings };

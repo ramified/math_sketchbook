@@ -1,5 +1,18 @@
 # Handoff: Chapter 3 self-contained rewrite (27 Nov 2026)
 
+## DONE (27 Nov 2026, second computer)
+
+- Both proof-check fixes are in the script and the report:
+  - the 8JU8 cutoff is now `s=\lfloor x^{400}\rfloor`;
+  - the 8JUA proof, step (3), identifies Adriazola (3.10) with the centered count of 8JVF. This adds the refs edge 8JUA proof → 8JVF.
+- The x^{400} cutoff is confirmed by Adriazola Def. 18.1(D6), so it was not reverted.
+- Backup: `backup-before-chapter3-self-contained-2026-11-27.sql` (gitignored).
+- The verifier now runs against that backup, without the chebyshev step. All checks passed.
+- Applied to remote D1: 277 changes.
+- refs-sync: no changes.
+- Live /tag pages 8JU7, 8JVH, 8JVK, 8JVG, C3R2, C3T2, C4S2, C4W2, 8JU8 and 8JUA show no `.katex-error`.
+- The chapter-dependency scan passed in the verifier: Chapter 3 links to Chapter 4 only from 8JVG and the 8JU2 intro.
+
 ## Where things stand
 
 **Live on the site** (already applied to the remote D1 database):

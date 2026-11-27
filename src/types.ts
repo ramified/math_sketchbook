@@ -34,6 +34,7 @@ export interface SectionRow {
   tag: string;
   parent_id: number | null;
   kind: "chapter" | "section";
+  appendix: number;
   title: string;
   intro_tex: string;
   intro_html_cache: string | null;

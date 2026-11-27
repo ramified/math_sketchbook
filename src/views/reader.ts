@@ -86,8 +86,8 @@ export async function chapterPage(ctx: Ctx, ch: SectionRow): Promise<string> {
   const e = ctx.book.byTag.get(ch.tag)!;
   const intro = await introHtml(ctx, ch);
   const secs = ctx.book.sectionsOf.get(ch.id) ?? [];
-  return page(ctx, `Chapter ${e.number}`, html`${breadcrumb(ctx, e)}
-<h1><span class="num">Chapter ${e.number}</span> ${raw(titleHtml(ctx, ch.title))} <a class="tag-link" href="/tag/${ch.tag}">${ch.tag}</a></h1>
+  return page(ctx, e.label, html`${breadcrumb(ctx, e)}
+<h1><span class="num">${e.label}</span> ${raw(titleHtml(ctx, ch.title))} <a class="tag-link" href="/tag/${ch.tag}">${ch.tag}</a></h1>
 <div class="intro">${raw(intro)}</div>
 <ol class="section-list">${secs.map((s) => html`<li><a href="/tag/${s.tag}"><span class="num">${s.number}</span> ${raw(titleHtml(ctx, s.title))}</a></li>`)}</ol>`);
 }

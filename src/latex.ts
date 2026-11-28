@@ -8,7 +8,7 @@
 // numbers that could go stale when results are moved.
 // \hyperref[TAG]{text} links its own text instead: REF_OPEN + TAG + REF_SEP + rendered text + REF_CLOSE.
 
-import { parse } from "@unified-latex/unified-latex-util-parse";
+import { getParser } from "@unified-latex/unified-latex-util-parse";
 import katex from "katex";
 
 export const REF_OPEN = "";
@@ -16,6 +16,7 @@ export const REF_CLOSE = "";
 export const REF_SEP = "";
 const PUA_RE =/[-]/g;
 const REF_TARGET_RE = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,63}$/;
+const parser = getParser({ environments: { unclear: { signature: "o" } } });
 
 export interface Warning {
   line?: number;
@@ -118,6 +119,39 @@ function envName(n: Node): string {
   return "";
 }
 
+/** Keep notes out of public output even when malformed TeX falls back to displaying source. */
+export function stripDraftNotes(src: string): string {
+  const startNote = /(?<!\\)(?:\\\\)*\\begin\s*\{\s*unclear\s*\}(\s*(?:%[^\r\n]*(?:\r\n?|\n)\s*)*)\[/g;
+  const noteToken = /\\end\s*\{\s*unclear\s*\}|\\[\s\S]|%[^\r\n]*|[{}\]]/g;
+  let out = "";
+  let cursor = 0;
+  for (let begin; (begin = startNote.exec(src));) {
+    const start = startNote.lastIndex - 1;
+    noteToken.lastIndex = start + 1;
+    let depth = 0;
+    let closingBracket: number | undefined;
+    let environmentEnd = src.length;
+    for (let token; (token = noteToken.exec(src));) {
+      const part = token[0];
+      if (part === "{") depth++;
+      else if (part === "}") depth = Math.max(0, depth - 1);
+      else if (depth === 0 && part === "]") {
+        closingBracket = noteToken.lastIndex;
+        break;
+      } else if (part.startsWith("\\end")) {
+        environmentEnd = Math.min(environmentEnd, token.index);
+      }
+    }
+    const end = closingBracket ?? environmentEnd;
+    // Keep an empty argument so a bracket at the start of the body remains part of the body.
+    const openerEnd = start - begin[1].length;
+    out += src.slice(cursor, openerEnd) + "[]" + src.slice(openerEnd, start) + src.slice(start, end).replace(/[^\r\n]+/g, "");
+    cursor = end;
+    startNote.lastIndex = end;
+  }
+  return out + src.slice(cursor);
+}
+
 type Seg = { kind: "inline" | "block" | "par"; html: string };
 
 class Renderer {
@@ -125,9 +159,11 @@ class Renderer {
   warnings: Warning[] = [];
   private src: string;
   private macros: Macros;
-  constructor(src: string, macros: Macros) {
+  private editorPreview: boolean;
+  constructor(src: string, macros: Macros, editorPreview = false) {
     this.src = src;
     this.macros = macros;
+    this.editorPreview = editorPreview;
   }
 
   warn(n: Node | undefined, message: string) {
@@ -336,6 +372,13 @@ class Renderer {
   environment(n: Node): Seg[] {
     const env = envName(n);
     const body = n.content as Node[];
+    if (env === "unclear") {
+      const note = this.editorPreview ? plainText(optArg(n)).trim() : "";
+      const heading = "A step here is still a rough draft." + (note ? " " + escapeHtml(note) : "");
+      const open = this.editorPreview ? " open" : "";
+      const content = assemble(this.segs(body), true);
+      return [{ kind: "block", html: `<details class="draft-block"${open}><summary>${heading}</summary><div class="draft-body">${content}</div></details>` }];
+    }
     if (MATH_ENVS.has(env)) {
       const s = this.slice(n);
       const tex = env === "displaymath" || env === "math" ? s.replace(/^\\begin\{\w+\}|\\end\{\w+\}$/g, "") : s;
@@ -446,16 +489,17 @@ function assemble(segs: Seg[], wrapParas: boolean): string {
 
 function parseSafe(src: string): { ast: Node | null; error?: string } {
   try {
-    return { ast: parse(src) as unknown as Node };
+    return { ast: parser.parse(src) as unknown as Node };
   } catch (e) {
     return { ast: null, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
 /** Render a LaTeX snippet (block mode: paragraphs, lists, display math). */
-export function renderTex(src: string, macros: Macros): RenderOutput {
+export function renderTex(src: string, macros: Macros, { editorPreview = false } = {}): RenderOutput {
   // The private-use characters are reserved for \ref placeholders; they must never come from the source.
   src = src.replace(PUA_RE, "");
+  if (!editorPreview) src = stripDraftNotes(src);
   if (!src.trim()) return { html: "", refs: [], warnings: [] };
   const { ast, error } = parseSafe(src);
   if (!ast) {
@@ -465,14 +509,14 @@ export function renderTex(src: string, macros: Macros): RenderOutput {
       warnings: [{ message: `Could not parse LaTeX: ${error}` }],
     };
   }
-  const r = new Renderer(src, macros);
+  const r = new Renderer(src, macros, editorPreview);
   const html = assemble(r.segs(ast.content as Node[]), true);
   return { html, refs: r.refs, warnings: r.warnings };
 }
 
 /** Render a short inline snippet such as a title (no paragraphs). */
 export function renderInlineTex(src: string, macros: Macros): string {
-  src = src.replace(PUA_RE, "");
+  src = stripDraftNotes(src.replace(PUA_RE, ""));
   if (!src.trim()) return "";
   const { ast } = parseSafe(src);
   if (!ast) return escapeHtml(src);
@@ -509,7 +553,7 @@ export function findRefTargets(src: string): { target: string; start: number; en
         }
       }
       if (Array.isArray(n.content)) visit(n.content);
-      for (const a of n.args ?? []) visit(a.content);
+      if (envName(n) !== "unclear") for (const a of n.args ?? []) visit(a.content);
     }
   };
   visit(ast.content as Node[]);

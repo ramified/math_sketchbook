@@ -8,6 +8,10 @@ const PIN = '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColo
 const main = document.querySelector("main");
 const buttonKeys = new WeakMap();
 
+function resultContent(article) {
+  return article.querySelector(":scope > .draft-result") ?? article;
+}
+
 function texOf(node) {
   return node.querySelector('annotation[encoding="application/x-tex"]')?.textContent.trim() ?? "";
 }
@@ -33,7 +37,7 @@ function toMarkdown(node) {
 
   function convert(el) {
     if (el.nodeType === Node.TEXT_NODE) return el.textContent.replace(/\s+/g, " ");
-    if (el.nodeType !== Node.ELEMENT_NODE || el.matches(SKIP)) return "";
+    if (el.nodeType !== Node.ELEMENT_NODE || el.matches(SKIP) || el.matches(".draft-block > summary")) return "";
     if (el.matches(".katex-display")) return block(formatMath(texOf(el), true));
     if (el.matches(".katex")) return formatMath(texOf(el));
     if (el.matches(".math-error.display")) return block(formatMath(el.textContent.trim(), true));
@@ -90,6 +94,7 @@ function cleanClone(el) {
 }
 
 function resultSnapshot(clone) {
+  clone = resultContent(clone);
   const head = clone.querySelector(":scope > .result-head");
   head.querySelectorAll("a").forEach((a) => a.replaceWith(...a.childNodes));
   const headings = [...head.querySelectorAll(".result-label, .result-title")];
@@ -126,7 +131,7 @@ function snapshot(el, kind, result, tag, key) {
   const prefix = (kind === "formula" ? "Formula" : "Figure") +
     (result && el.closest(".proof") ? " in the proof of " : " in ");
   const title = result
-    ? result.querySelector(":scope > .result-head .result-label")
+    ? resultContent(result).querySelector(":scope > .result-head .result-label")
     : main.querySelector("h1");
   const heading = title && cleanClone(title);
   heading?.querySelectorAll(".tag-link").forEach((link) => link.remove());
@@ -143,7 +148,7 @@ function snapshot(el, kind, result, tag, key) {
 function addPin(el, kind) {
   const result = el.closest(RESULT);
   const tag = result?.dataset.tag ?? null;
-  const head = kind === "result" ? el.querySelector(":scope > .result-head") : null;
+  const head = kind === "result" ? resultContent(el).querySelector(":scope > .result-head") : null;
   const img = kind === "figure" ? el.querySelector("img[src]") : null;
   if ((kind === "result" && !head) || (kind === "figure" && !img)) return;
 
@@ -280,8 +285,10 @@ function cardFor(item) {
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     const tag = cardEntries.get(item.key)?.item.tag;
     const target = tag && document.getElementById(tag);
-    if (!target) return;
+    if (!target?.getClientRects().length) return;
     event.preventDefault();
+    const draft = target.querySelector(":scope > .draft-result");
+    if (draft) draft.open = true;
     target.scrollIntoView({ behavior: "smooth", block: "start" });
     target.classList.remove("knowl-flash");
     void target.offsetWidth;

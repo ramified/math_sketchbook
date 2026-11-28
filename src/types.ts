@@ -23,6 +23,14 @@ export const STATUS_BADGES: Record<ProofStatus, string> = {
 export const GENERATORS = ["human", "claude", "gpt"] as const;
 export type Generator = (typeof GENERATORS)[number];
 
+export const UNDERSTANDING_LEVELS = ["unclear", "partial", "clear"] as const;
+export type UnderstandingLevel = (typeof UNDERSTANDING_LEVELS)[number];
+export const UNDERSTANDING_LABELS: Record<UnderstandingLevel, string> = {
+  unclear: "Not yet understood",
+  partial: "Partly understood",
+  clear: "Understood",
+};
+
 export type Role = "editor" | "reviewer" | "admin";
 export interface User {
   email: string;
@@ -56,6 +64,7 @@ export interface ResultRow {
   visibility: "published" | "draft";
   state: "active" | "retired";
   listed: number; // 1 = numbered and listed in its section; 0 = reachable only through links
+  understanding: UnderstandingLevel;
   replaced_by_id: number | null;
   revision: number;
   updated_at: string;
@@ -69,6 +78,7 @@ export interface ProofRow {
   body_tex: string;
   body_html_cache: string | null;
   status: ProofStatus;
+  understanding: UnderstandingLevel;
   generated_by: Generator;
   generator_detail: string | null;
   reviewed_by: string | null;

@@ -61,6 +61,7 @@ pre { background: var(--code-bg); padding: 0.6rem; overflow-x: auto; border-radi
 }
 .site-title { font-weight: 600; color: var(--fg); text-decoration: none; }
 .site-header nav a { margin-left: 1rem; }
+.show-drafts-toggle { margin-left: 1rem; font-size: 0.85rem; color: var(--muted); white-space: nowrap; cursor: pointer; }
 .site-footer { text-align: center; padding: 2rem 16px; font-size: 0.85rem; color: var(--muted); font-family: system-ui, sans-serif; }
 .site-footer a { color: var(--muted); }
 .breadcrumb { font-size: 0.9rem; color: var(--muted); font-family: system-ui, sans-serif; margin: 0.5rem 0; }
@@ -80,19 +81,28 @@ pre { background: var(--code-bg); padding: 0.6rem; overflow-x: auto; border-radi
 
 /* results */
 .result { margin: 1.6rem 0; scroll-margin-top: 1rem; }
+:root:not(.show-drafts) .draft-hidden { display: none; }
+#page-folds > :is(.result, .intro-fold) { margin: 0.65rem 0; }
+.intro-fold > summary { color: var(--muted); cursor: pointer; }
+.fold-controls { display: flex; gap: 0.5rem; margin-top: 1rem; font: 0.8rem system-ui, sans-serif; }
+.fold-controls button {
+  font: inherit; color: var(--muted); background: transparent; border: 1px solid var(--border);
+  border-radius: 3px; padding: 0.15rem 0.45rem; cursor: pointer;
+}
+.fold-controls button:hover { color: var(--accent); border-color: var(--accent); }
 .result-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; margin-bottom: 0.2rem; }
 .result-label { font-weight: 700; }
 .result-link { color: inherit; text-decoration: none; }
 .result-link:hover .result-label { text-decoration: underline; }
 .result-title { font-weight: 600; }
-.type-definition > .result-head .result-label { color: var(--def); }
-.type-theorem > .result-head .result-label, .type-proposition > .result-head .result-label,
-.type-lemma > .result-head .result-label, .type-corollary > .result-head .result-label { color: var(--thm); }
-.type-remark > .result-head .result-label, .type-example > .result-head .result-label,
-.type-motivation > .result-head .result-label { color: var(--rem); }
+.type-definition > .result-head .result-label, .type-definition > .draft-result > .result-head .result-label { color: var(--def); }
+:is(.type-theorem, .type-proposition, .type-lemma, .type-corollary) > .result-head .result-label,
+:is(.type-theorem, .type-proposition, .type-lemma, .type-corollary) > .draft-result > .result-head .result-label { color: var(--thm); }
+:is(.type-remark, .type-example, .type-motivation) > .result-head .result-label,
+:is(.type-remark, .type-example, .type-motivation) > .draft-result > .result-head .result-label { color: var(--rem); }
 /* italic statements (child combinator so knowls opened inside a theorem are not affected) */
-.type-theorem > .statement, .type-lemma > .statement, .type-proposition > .statement,
-.type-corollary > .statement, .type-conjecture > .statement { font-style: italic; }
+:is(.type-theorem, .type-lemma, .type-proposition, .type-corollary, .type-conjecture) > .statement,
+:is(.type-theorem, .type-lemma, .type-proposition, .type-corollary, .type-conjecture) > .draft-result > .statement { font-style: italic; }
 .statement .katex { font-style: normal; }
 .knowl-box { font-style: normal; }
 .tag-link {
@@ -110,19 +120,25 @@ details.proof > summary { cursor: pointer; }
 .proof-body { position: relative; padding-right: 1.4em; }
 .proof-body > p:last-of-type { margin-bottom: 0.4rem; }
 .qed { position: absolute; right: 0; bottom: 0.4rem; color: var(--muted); }
-.badge {
-  display: inline-block; font-family: system-ui, sans-serif; font-size: 0.72rem; line-height: 1.5;
-  padding: 0 0.5em; border-radius: 999px; border: 1px solid var(--border); white-space: nowrap; font-style: normal;
+.draft-marker, .draft-proof > summary, .draft-block > summary { color: var(--muted); }
+.draft-result > summary { cursor: pointer; }
+.draft-result:not([open]) > summary { flex-wrap: nowrap; white-space: nowrap; }
+.draft-result:not([open]) > summary .result-heading { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.draft-result:not([open]) > summary .katex-html { white-space: nowrap; }
+.draft-result > summary::-webkit-details-marker { display: none; }
+.draft-marker {
+  flex: none; font: 0.78rem system-ui, sans-serif;
 }
-.badge-ai_generated { background: #fff4e5; border-color: #f0c37a; color: #7a4b00; }
-.badge-polishing { background: #eef3ff; border-color: #a9bff0; color: #23408e; }
-.badge-polished { background: #eaf7ee; border-color: #8fd0a2; color: #18623a; }
-@media (prefers-color-scheme: dark) {
-  .badge-ai_generated { background: #3a2a10; color: #f5c77a; border-color: #6b4f1d; }
-  .badge-polishing { background: #1c2740; color: #a9bff0; border-color: #33497a; }
-  .badge-polished { background: #12301d; color: #8fd0a2; border-color: #2a5b3a; }
+.draft-result > summary::after { content: "▸"; color: var(--muted); }
+.draft-result[open] > summary::after { content: "▾"; }
+.draft-banner, body:not(.drafts-unfolded) .draft-block {
+  margin: 0.4rem 0 0.7rem; padding-left: 0.65rem; border-left: 2px solid var(--border);
 }
-.provenance { font-family: system-ui, sans-serif; font-size: 0.75rem; color: var(--muted); }
+.draft-banner { color: var(--muted); font-size: 0.9rem; }
+.draft-block > summary { cursor: pointer; font-size: 0.9rem; }
+.drafts-unfolded .draft-block, .drafts-unfolded .draft-body { display: contents; }
+.drafts-unfolded .draft-block::details-content { display: contents; }
+.drafts-unfolded .draft-block > summary { display: none; }
 
 .math-display { overflow-x: auto; overflow-y: hidden; margin: 0.6rem 0; }
 .part-picker { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.2rem 0 0.6rem; font-family: system-ui, sans-serif; font-size: 0.8rem; }
@@ -202,7 +218,8 @@ li > .knowl-box { margin-left: 0; }
   .pin-btn { opacity: 0.5; }
 }
 .pin-host:hover > .pin-btn, .pin-host:focus-within > .pin-btn,
-.result:hover > .result-head .pin-btn, .result:focus-within > .result-head .pin-btn { opacity: 1; }
+.result:is(:hover, :focus-within) > .result-head .pin-btn,
+.result:is(:hover, :focus-within) > .draft-result > .result-head .pin-btn { opacity: 1; }
 .pin-btn[aria-pressed="true"] { opacity: 1; color: var(--accent); }
 
 .pinboard {

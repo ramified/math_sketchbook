@@ -6,8 +6,8 @@ import { renderTex, rewriteRefTargets, findRefTargets, type Warning } from "./la
 import { isAlias, isTag, randomTag } from "./tags.ts";
 import { macrosFor, refInserts, loadSettings } from "./book.ts";
 import {
-  RESULT_TYPES, PROOF_STATUSES, GENERATORS, type ProofRow, type ResultRow, type SectionRow, type ResultType,
-  type ProofStatus, type Generator,
+  RESULT_TYPES, PROOF_STATUSES, GENERATORS, UNDERSTANDING_LEVELS, type ProofRow, type ResultRow, type SectionRow,
+  type ResultType, type ProofStatus, type Generator, type UnderstandingLevel,
 } from "./types.ts";
 
 export class UserError extends Error {
@@ -56,7 +56,7 @@ async function nextId(db: D1Database, table: "proofs" | "results" | "sections", 
 function proofSnapshot(p: ProofRow) {
   return {
     result_id: p.result_id, body_tex: p.body_tex, status: p.status, generated_by: p.generated_by, generator_detail: p.generator_detail,
-    reviewed_by: p.reviewed_by, review_notes: p.review_notes, position: p.position,
+    reviewed_by: p.reviewed_by, review_notes: p.review_notes, position: p.position, understanding: p.understanding,
   };
 }
 
@@ -135,7 +135,7 @@ export function unresolvedWarnings(refs: string[], ac: AliasContext, label: stri
 export function previewTex(tex: string, ac: AliasContext, macroSrc: string) {
   const canonical = canonicalizeRefs(tex, ac);
   const { macros, error } = macrosFor(macroSrc);
-  const out = renderTex(canonical, macros);
+  const out = renderTex(canonical, macros, { editorPreview: true });
   const warnings = [...out.warnings, ...unresolvedWarnings(out.refs, ac, "Reference")];
   if (error) warnings.unshift({ message: `Macro file error: ${error}` });
   return { html: out.html, warnings };
@@ -148,6 +148,7 @@ export interface ProofInput {
   revision?: number;
   body_tex: string;
   status: ProofStatus;
+  understanding?: UnderstandingLevel;
   generated_by: Generator;
   generator_detail: string;
   reviewed_by: string;
@@ -164,6 +165,7 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
   const sectionId = int(body.section_id, "section");
   // Unlisted results are reachable only through links; omitted = keep the current setting.
   const listed = body.listed === undefined ? existing.listed : body.listed ? 1 : 0;
+  const understanding = body.understanding === undefined ? null : oneOf(body.understanding, UNDERSTANDING_LEVELS, "understanding");
   const placeAfter = parsePlaceAfter(body.place_after);
   let statement = str(body.statement_tex, MAX_TEX, "Statement");
   const aliasesIn = Array.isArray(body.aliases) ? body.aliases.map((a) => str(a, 64, "Alias").trim().toLowerCase()).filter(Boolean) : [];
@@ -172,6 +174,7 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
     revision: p.revision === undefined || p.revision === null ? undefined : int(p.revision, "proof revision"),
     body_tex: str(p.body_tex, MAX_TEX, "Proof"),
     status: oneOf<ProofStatus>(p.status, PROOF_STATUSES, "proof status"),
+    understanding: p.understanding === undefined ? undefined : oneOf(p.understanding, UNDERSTANDING_LEVELS, "proof understanding"),
     generated_by: oneOf<Generator>(p.generated_by, GENERATORS, "generated_by"),
     generator_detail: str(p.generator_detail, 300, "Generator detail").trim(),
     reviewed_by: str(p.reviewed_by, 200, "Reviewed by").trim(),
@@ -212,10 +215,10 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
   const oldAliases = [...ac.aliasToTag].filter(([, t]) => t === tag).map(([a]) => a);
   const stmts: D1PreparedStatement[] = [
     guard(db, "results", existing.id, revision),
-    baselineRow(db, "result", existing.id, existing.revision, op, {
+    resultRevisionRow(db, existing.id, existing.revision, op, {
       tag, type: existing.type, title: existing.title, statement_tex: existing.statement_tex, section_id: existing.section_id,
       position: existing.position, listed: existing.listed, aliases: oldAliases,
-    }, existing.updated_by),
+    }, existing.updated_by, true),
     ...existingProofs.map((p) => baselineRow(db, "proof", p.id, p.revision, op, proofSnapshot(p), null)),
   ];
   const proofRefs: { proofId: number; refs: string[] }[] = [];
@@ -227,12 +230,13 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
     const out = renderTex(bodyTex, macros);
     warnings.push(...out.warnings.map((w) => ({ ...w, message: `Proof ${position}: ${w.message}` })));
     warnings.push(...unresolvedWarnings(out.refs, ac, `Proof ${position}`));
+    const old = p.id === undefined ? undefined : byId.get(p.id);
     const fields = {
       body_tex: bodyTex, status: p.status, generated_by: p.generated_by, generator_detail: p.generator_detail || null,
       reviewed_by: p.reviewed_by || null, review_notes: p.review_notes || null, position,
+      understanding: p.understanding ?? old?.understanding ?? "unclear",
     };
     if (p.id !== undefined) {
-      const old = byId.get(p.id);
       if (!old) throw new UserError("A proof in this form no longer exists. Reload the page.", 409);
       if (p.revision === undefined) throw new UserError("Missing proof revision.");
       keptIds.add(p.id);
@@ -242,9 +246,9 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
       if (changed) {
         proofWrites.push(
           db.prepare(`UPDATE proofs SET body_tex=?, body_html_cache=?, status=?, generated_by=?, generator_detail=?, reviewed_by=?,
-                      review_notes=?, position=?, revision=revision+1, updated_at=?, updated_by=? WHERE id=?`)
+                      review_notes=?, position=?, understanding=?, revision=revision+1, updated_at=?, updated_by=? WHERE id=?`)
             .bind(fields.body_tex, out.html, fields.status, fields.generated_by, fields.generator_detail, fields.reviewed_by,
-              fields.review_notes, position, ts, author, p.id),
+              fields.review_notes, position, fields.understanding, ts, author, p.id),
           revisionRow(db, "proof", p.id, p.revision + 1, op, { result_id: existing.id, ...fields }, author),
         );
       }
@@ -253,9 +257,9 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
       proofRefs.push({ proofId: id, refs: out.refs });
       proofWrites.push(
         db.prepare(`INSERT INTO proofs (id, result_id, position, body_tex, body_html_cache, status, generated_by, generator_detail,
-                    reviewed_by, review_notes, created_at, updated_at, created_by, updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+                    reviewed_by, review_notes, understanding, created_at, updated_at, created_by, updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(id, existing.id, position, fields.body_tex, out.html, fields.status, fields.generated_by, fields.generator_detail,
-            fields.reviewed_by, fields.review_notes, ts, ts, author, author),
+            fields.reviewed_by, fields.review_notes, fields.understanding, ts, ts, author, author),
         revisionRow(db, "proof", id, 1, op, { result_id: existing.id, ...fields }, author),
       );
     }
@@ -285,9 +289,9 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
   for (const old of existingProofs) if (!keptIds.has(old.id)) stmts.push(db.prepare("DELETE FROM proofs WHERE id = ?").bind(old.id));
   stmts.push(
     db.prepare(`UPDATE results SET type=?, title=?, statement_tex=?, statement_html_cache=?, section_id=?, position=?, listed=?,
-                visibility='published', revision=revision+1, updated_at=?, updated_by=? WHERE id=?`)
-      .bind(type, title, statement, stmtOut.html, sectionId, newPosition, listed, ts, author, existing.id),
-    revisionRow(db, "result", existing.id, revision + 1, op, { tag, type, title, statement_tex: statement, section_id: sectionId, position: newPosition, listed, aliases: [...newAliases.keys()] }, author),
+                understanding=COALESCE(?, understanding), visibility='published', revision=revision+1, updated_at=?, updated_by=? WHERE id=?`)
+      .bind(type, title, statement, stmtOut.html, sectionId, newPosition, listed, understanding, ts, author, existing.id),
+    resultRevisionRow(db, existing.id, revision + 1, op, { tag, type, title, statement_tex: statement, section_id: sectionId, position: newPosition, listed, aliases: [...newAliases.keys()] }, author),
   );
   stmts.push(...proofWrites);
   stmts.push(...refInserts(db, existing.id, stmtOut.refs, proofRefs));
@@ -298,6 +302,31 @@ export async function saveResult(db: D1Database, author: string, tag: string, bo
 
   await runBatch(db, stmts);
   return { warnings };
+}
+
+// Read the label within the save batch because a dashboard edit can change it without bumping the revision.
+function resultRevisionRow(db: D1Database, id: number, revision: number, op: string, snapshot: unknown, author: string | null, baseline = false) {
+  return db.prepare(`INSERT ${baseline ? "OR IGNORE " : ""}INTO revisions (entity, entity_key, revision, operation_id, snapshot_json, author)
+    SELECT 'result', ?, ?, ?, json_set(?, '$.understanding', understanding), ? FROM results WHERE id = ?`)
+    .bind(String(id), revision, op, JSON.stringify(snapshot), author ?? "(before history)", id);
+}
+
+export async function saveUnderstanding(db: D1Database, body: Record<string, unknown>): Promise<void> {
+  const level = oneOf(body.level, UNDERSTANDING_LEVELS, "understanding");
+  const tag = str(body.tag, 4, "Tag");
+  if (!isTag(tag)) throw new UserError("Invalid tag.");
+  const scope = body.scope === undefined ? "result" : oneOf(body.scope, ["result", "container"] as const, "scope");
+  if (scope === "result") {
+    const updated = await db.prepare("UPDATE results SET understanding = ? WHERE tag = ?").bind(level, tag).run();
+    if (!updated.meta.changes) throw new UserError("No such result.", 404);
+    return;
+  }
+  const section = await db.prepare("SELECT id, kind FROM sections WHERE tag = ?").bind(tag).first<Pick<SectionRow, "id" | "kind">>();
+  if (!section) throw new UserError("No such chapter or section.", 404);
+  const sql = section.kind === "chapter"
+    ? "UPDATE results SET understanding = ? WHERE section_id IN (SELECT id FROM sections WHERE kind = 'section' AND parent_id = ?)"
+    : "UPDATE results SET understanding = ? WHERE section_id = ?";
+  await db.prepare(sql).bind(level, section.id).run();
 }
 
 async function freshTag(db: D1Database): Promise<string> {
@@ -323,7 +352,7 @@ export async function createResult(db: D1Database, author: string, body: Record<
     // Created as a hidden draft; the first "Save & publish" makes it public.
     db.prepare(`INSERT INTO results (id, tag, type, title, statement_tex, section_id, position, visibility, created_at, updated_at, created_by, updated_by)
                 VALUES (?, ?, ?, '', '', ?, ?, 'draft', ?, ?, ?, ?)`).bind(id, tag, type, sectionId, pos, ts, ts, author, author),
-    revisionRow(db, "result", id, 1, crypto.randomUUID(), { tag, type, title: "", statement_tex: "", section_id: sectionId, position: pos }, author),
+    resultRevisionRow(db, id, 1, crypto.randomUUID(), { tag, type, title: "", statement_tex: "", section_id: sectionId, position: pos }, author),
   ]);
   return tag;
 }
@@ -398,7 +427,7 @@ export async function saveSection(db: D1Database, author: string, tag: string, b
 
 // ---------------------------------------------------------------------------------------------- settings
 
-export const EDITABLE_SETTINGS = ["book_title", "macros", "bibliography"] as const;
+export const EDITABLE_SETTINGS = ["book_title", "macros", "bibliography", "fold_drafts"] as const;
 
 export async function saveSetting(db: D1Database, author: string, body: Record<string, unknown>): Promise<{ warnings: Warning[] }> {
   const key = oneOf(body.key, EDITABLE_SETTINGS, "setting");
@@ -409,11 +438,12 @@ export async function saveSetting(db: D1Database, author: string, body: Record<s
     if (error) throw new UserError(`The macro file has an error, nothing was saved: ${error}`);
   }
   const old = await db.prepare("SELECT value, revision FROM settings WHERE key = ?").bind(key).first<{ value: string; revision: number }>();
-  if (!old) throw new UserError(`Setting ${key} is missing; run the seed file first.`, 500);
+  if (!old && key !== "fold_drafts") throw new UserError(`Setting ${key} is missing; run the seed file first.`, 500);
   const op = crypto.randomUUID();
   const stmts: D1PreparedStatement[] = [
+    ...(!old ? [db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('fold_drafts', '0')")] : []),
     guard(db, "settings", key, revision),
-    baselineRow(db, "setting", key, old.revision, op, { key, value: old.value }, null),
+    baselineRow(db, "setting", key, old?.revision ?? 1, op, { key, value: old?.value ?? "0" }, null),
     db.prepare("UPDATE settings SET value = ?, revision = revision + 1 WHERE key = ?").bind(value, key),
     revisionRow(db, "setting", key, revision + 1, op, { key, value }, author),
   ];

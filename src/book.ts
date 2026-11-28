@@ -1,7 +1,7 @@
 // Reading side: load the book structure, compute numbers, render cached HTML, fill in \ref placeholders.
 
 import { buildMacros, renderTex, renderInlineTex, escapeHtml, REF_OPEN, REF_CLOSE, REF_SEP, type Macros } from "./latex.ts";
-import type { Env, ResultRow, ProofRow, SectionRow, ResultType } from "./types.ts";
+import type { Env, ResultRow, ProofRow, SectionRow, ResultType, UnderstandingLevel } from "./types.ts";
 
 export interface Entry {
   tag: string;
@@ -11,6 +11,7 @@ export interface Entry {
   label: string; // "Lemma 1.2.3"
   title: string; // raw TeX title
   type?: ResultType;
+  understanding?: UnderstandingLevel;
   parentId: number | null; // chapter id for sections, section id for results
   hidden: boolean; // draft or retired: not numbered on the public site
   listed: boolean; // false: shown only through links (no number, not listed in its section on the public site)
@@ -35,7 +36,7 @@ export interface Ctx {
 }
 
 /** Bump when the LaTeX renderer changes: all cached HTML is then re-rendered on the next request. */
-export const RENDER_VERSION = "5";
+export const RENDER_VERSION = "6";
 
 export function typeName(t: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
@@ -70,10 +71,10 @@ function appendixLetter(index: number): string {
 export async function loadBook(db: D1Database, includeHidden: boolean): Promise<Book> {
   const [secs, ress] = await db.batch([
     db.prepare("SELECT id, tag, parent_id, kind, title, position, appendix FROM sections ORDER BY position, id"),
-    db.prepare("SELECT id, tag, type, title, section_id, position, visibility, state, listed FROM results ORDER BY position, id"),
+    db.prepare("SELECT id, tag, type, title, section_id, position, visibility, state, listed, understanding FROM results ORDER BY position, id"),
   ]);
   const sections = secs.results as Pick<SectionRow, "id" | "tag" | "parent_id" | "kind" | "title" | "position" | "appendix">[];
-  const results = ress.results as Pick<ResultRow, "id" | "tag" | "type" | "title" | "section_id" | "position" | "visibility" | "state" | "listed">[];
+  const results = ress.results as Pick<ResultRow, "id" | "tag" | "type" | "title" | "section_id" | "position" | "visibility" | "state" | "listed" | "understanding">[];
 
   const book: Book = { chapters: [], sectionsOf: new Map(), resultsOf: new Map(), byTag: new Map(), sectionById: new Map() };
   const chapters = sections.filter((s) => s.kind === "chapter").sort((a, b) => a.appendix - b.appendix);
@@ -106,7 +107,7 @@ export async function loadBook(db: D1Database, includeHidden: boolean): Promise<
         const n = !listed ? "" : hidden ? `${num}.?` : `${num}.${++k}`;
         const re: Entry = {
           tag: r.tag, id: r.id, kind: "result", number: n, label: n ? `${typeName(r.type)} ${n}` : typeName(r.type),
-          title: r.title, type: r.type, parentId: s.id, hidden, listed,
+          title: r.title, type: r.type, parentId: s.id, hidden, listed, understanding: r.understanding,
         };
         // Unlisted results stay reachable by tag (links, knowls, their own page) but are only listed in the editor.
         if (listed || includeHidden) rs.push(re);
@@ -155,6 +156,11 @@ export function fillRefs(cached: string, book: Book): string {
   });
 }
 
+export function readerHtml(ctx: Ctx, cached: string): string {
+  const filled = fillRefs(cached, ctx.book);
+  return ctx.settings.fold_drafts === "1" ? filled : filled.replaceAll('<details class="draft-block">', '<details class="draft-block" open>');
+}
+
 /** Like fillRefs but plain text (for titles, which are often inside links already). */
 export function labelRefs(cached: string, book: Book): string {
   return cached.replace(REF_PLACEHOLDER, (_, tag: string, text: string | undefined) =>
@@ -182,7 +188,7 @@ export async function statementHtml(ctx: Ctx, r: Pick<ResultRow, "id" | "stateme
     c = renderTex(r.statement_tex, ctx.macros).html;
     await ctx.db.prepare("UPDATE results SET statement_html_cache = ? WHERE id = ? AND statement_tex = ?").bind(c, r.id, r.statement_tex).run();
   }
-  return fillRefs(c, ctx.book);
+  return readerHtml(ctx, c);
 }
 export async function proofHtml(ctx: Ctx, p: Pick<ProofRow, "id" | "body_tex" | "body_html_cache">): Promise<string> {
   let c = p.body_html_cache;
@@ -190,7 +196,7 @@ export async function proofHtml(ctx: Ctx, p: Pick<ProofRow, "id" | "body_tex" | 
     c = renderTex(p.body_tex, ctx.macros).html;
     await ctx.db.prepare("UPDATE proofs SET body_html_cache = ? WHERE id = ? AND body_tex = ?").bind(c, p.id, p.body_tex).run();
   }
-  return fillRefs(c, ctx.book);
+  return readerHtml(ctx, c);
 }
 export async function introHtml(ctx: Ctx, s: Pick<SectionRow, "id" | "intro_tex" | "intro_html_cache">): Promise<string> {
   let c = s.intro_html_cache;
@@ -198,7 +204,7 @@ export async function introHtml(ctx: Ctx, s: Pick<SectionRow, "id" | "intro_tex"
     c = renderTex(s.intro_tex, ctx.macros).html;
     await ctx.db.prepare("UPDATE sections SET intro_html_cache = ? WHERE id = ? AND intro_tex = ?").bind(c, s.id, s.intro_tex).run();
   }
-  return fillRefs(c, ctx.book);
+  return readerHtml(ctx, c);
 }
 
 /** Statements for building the refs rows of one result (statement + each proof). */

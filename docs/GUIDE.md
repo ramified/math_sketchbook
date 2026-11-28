@@ -99,6 +99,22 @@ changes until you save.
 Chapters and sections are created on the `/edit` page. The book title, the shared macros and the bibliography
 are edited at `/edit/settings`.
 
+### Understanding levels and rough drafts
+
+Use **Understanding** on a result or proof to record **Not yet understood**, **Partly understood** or **Understood**.
+New results and proofs start at **Not yet understood**. The editor dashboard can mark results individually or
+mark all results in a section or chapter at once.
+
+Wrap a rough passage in `\begin{unclear}[optional note] ... \end{unclear}`. The note appears in the editor preview.
+
+**Draft folding** (`fold_drafts`) is off by default. Turn it on in **Book settings** to start every listed
+result on its section page collapsed to its heading. Chapter and section introductions start collapsed under
+**Introduction** and are shown open in expanded references. **Expand all** and **Collapse all** act on the
+introduction and any visible results. Results marked **Not yet understood** keep their numbers and stay hidden
+in sections and the contents until the reader turns on **Show drafts**. Their own pages and expanded references
+still show the statement with a draft banner. Following a link to a result within a section opens its result fold. Every `unclear`
+block and every proof marked **Not yet understood** starts collapsed while draft folding is enabled.
+
 ### LaTeX that works
 
 - **Math:** `$…$`, `\(…\)`, `\[…\]`, `$$…$$`, plus `equation`, `align`, `gather`, `multline`, `alignat`, `CD` (with or

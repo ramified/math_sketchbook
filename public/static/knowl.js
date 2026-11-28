@@ -5,6 +5,65 @@
   "use strict";
   const cache = new Map(); // tag -> Promise<string>
   const boxes = new WeakMap(); // link -> box element
+  const draftPreference = "show-drafts";
+
+  function openHashDraft(revealedDrafts = false) {
+    let id;
+    try {
+      id = decodeURIComponent(location.hash.slice(1));
+    } catch {
+      return;
+    }
+    const target = document.getElementById(id);
+    const draft = target?.querySelector(":scope > details.draft-result");
+    if (!draft) return;
+    const scroll = !draft.open || (revealedDrafts && target.classList.contains("draft-hidden"));
+    draft.open = true;
+    if (scroll && target.getClientRects().length) target.scrollIntoView({ block: "start" });
+  }
+
+  function wireDrafts() {
+    const root = document.documentElement;
+    const toggle = document.getElementById("show-drafts");
+    if (toggle) {
+      try {
+        toggle.checked = localStorage.getItem(draftPreference) === "1";
+      } catch {
+        /* storage unavailable */
+      }
+      root.classList.toggle(draftPreference, toggle.checked);
+      toggle.addEventListener("change", () => {
+        try {
+          localStorage.setItem(draftPreference, toggle.checked ? "1" : "0");
+        } catch {
+          /* storage unavailable */
+        }
+        root.classList.toggle(draftPreference, toggle.checked);
+        if (toggle.checked) openHashDraft(true);
+      });
+      openHashDraft();
+      window.addEventListener("hashchange", () => openHashDraft());
+    }
+
+    const folds = document.getElementById("page-folds");
+    folds?.querySelectorAll("[data-fold-action]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const articles = root.classList.contains(draftPreference) ? "article.result" : "article.result:not(.draft-hidden)";
+        const expand = button.dataset.foldAction === "expand";
+        folds.querySelectorAll(`:scope > details.intro-fold, :scope > ${articles} > details.draft-result`)
+          .forEach((fold) => (fold.open = expand));
+      });
+    });
+
+    if (document.body.classList.contains("drafts-unfolded")) new MutationObserver((records) => {
+      const selector = "details.draft-block";
+      for (const record of records) for (const node of record.addedNodes) {
+        if (!(node instanceof Element)) continue;
+        if (node.matches(selector)) node.open = true;
+        node.querySelectorAll(selector).forEach((draft) => (draft.open = true));
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  }
 
   function load(tag) {
     if (!cache.has(tag)) {
@@ -111,5 +170,6 @@
   // Mark refs as expandable for assistive technology.
   const mark = (root) => root.querySelectorAll("a.ref[data-tag]:not([aria-expanded])").forEach((a) => a.setAttribute("aria-expanded", "false"));
   document.addEventListener("DOMContentLoaded", () => mark(document));
+  document.addEventListener("DOMContentLoaded", wireDrafts);
   new MutationObserver(() => mark(document)).observe(document.documentElement, { childList: true, subtree: true });
 })();

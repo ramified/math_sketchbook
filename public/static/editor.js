@@ -115,6 +115,10 @@
     data.section_id = Number(val("section_id"));
     const listedBox = form.querySelector('[name="listed"]');
     if (listedBox) data.listed = listedBox.checked;
+    const understanding = form.querySelector('[name="understanding"]');
+    if (understanding.value !== understanding.dataset.current || understanding.hasAttribute("data-restore")) {
+      data.understanding = understanding.value;
+    }
     data.statement_tex = val("statement_tex");
     data.aliases = (val("aliases") || "").split(",").map((s) => s.trim()).filter(Boolean);
     data.proofs = [...form.querySelectorAll("#proofs > fieldset.proof-edit")].map((fs) => {
@@ -124,6 +128,7 @@
         revision: fs.dataset.revision ? Number(fs.dataset.revision) : null,
         body_tex: f("body_tex"),
         status: f("status"),
+        understanding: f("understanding"),
         generated_by: f("generated_by"),
         generator_detail: f("generator_detail"),
         reviewed_by: f("reviewed_by"),
@@ -232,6 +237,45 @@
     });
   }
 
+  function wireUnderstanding(nav) {
+    nav.addEventListener("change", async (event) => {
+      const select = event.target;
+      if (!select.matches("select.mark-understanding") || !select.value) return;
+      const { result, container, kind } = select.dataset;
+      const level = select.value;
+      const previous = select.dataset.saved ?? "";
+      if (container && !confirm("Mark all results in this " + kind + " as “" + select.selectedOptions[0].text + "”?")) {
+        select.value = previous;
+        return;
+      }
+      const chapter = select.closest(".toc-chapter");
+      const controls = chapter.querySelectorAll(".mark-understanding");
+      const status = chapter.querySelector(".understanding-status");
+      controls.forEach((control) => (control.disabled = true));
+      status.textContent = "Saving…";
+      try {
+        const payload = container ? { tag: container, level, scope: "container" } : { tag: result, level };
+        await postJSON("/api/edit/understanding", payload);
+        const group = kind === "section" ? select.closest(".toc-section") : chapter;
+        const results = container ? group.querySelectorAll("[data-result]") : [select];
+        for (const field of results) {
+          field.value = level;
+          field.dataset.saved = level;
+        }
+        if (container) select.value = "";
+        const counts = { clear: 0, partial: 0, unclear: 0 };
+        chapter.querySelectorAll("[data-result]").forEach((field) => counts[field.dataset.saved]++);
+        chapter.querySelectorAll("[data-count]").forEach((field) => (field.textContent = counts[field.dataset.count]));
+        status.textContent = "Saved";
+      } catch (err) {
+        select.value = previous;
+        status.textContent = "Could not save understanding. " + err.message;
+      } finally {
+        controls.forEach((control) => (control.disabled = false));
+      }
+    });
+  }
+
   function wireSettings() {
     document.querySelectorAll("form.setting-form").forEach((form) => {
       const status = form.querySelector(".save-status");
@@ -240,9 +284,10 @@
         e.preventDefault();
         status.textContent = "Saving…";
         try {
+          const input = form.querySelector('[name="value"]');
           await postJSON(form.dataset.saveUrl, {
             key: form.dataset.key,
-            value: form.querySelector('[name="value"]').value,
+            value: input.type === "checkbox" ? (input.checked ? "1" : "0") : input.value,
             revision: Number(form.querySelector('[name="revision"]').value),
           });
           dirty = false;
@@ -271,6 +316,8 @@
   document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("edit-form");
     if (form) wireEditForm(form);
+    const dashboard = document.querySelector(".edit-toc");
+    if (dashboard) wireUnderstanding(dashboard);
     wireCreateForms();
     wireSettings();
   });

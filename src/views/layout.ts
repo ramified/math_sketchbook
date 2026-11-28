@@ -5,10 +5,11 @@ export interface LayoutOpts {
   bookTitle: string;
   body: SafeHtml;
   editor?: boolean; // load editor assets
+  foldDrafts?: boolean;
   description?: string;
 }
 
-const ASSET_VERSION = "7"; // bump when public/static files change, so browsers fetch the new ones
+const ASSET_VERSION = "11"; // bump when public/static files change, so browsers fetch the new ones
 
 export function layout(o: LayoutOpts): string {
   return "<!doctype html>\n" + html`<html lang="en">
@@ -25,10 +26,12 @@ ${o.editor ? html`<link rel="stylesheet" href="/static/editor.css?v=${ASSET_VERS
 ${!o.editor ? html`<script type="module" src="/static/pinboard.js?v=${ASSET_VERSION}"></script>` : ""}
 ${o.editor ? html`<script src="/static/editor.js?v=${ASSET_VERSION}" defer></script>` : ""}
 </head>
-<body class="${o.editor ? "editor-mode" : ""}">
+<body class="${o.editor ? "editor-mode" : o.foldDrafts === false ? "drafts-unfolded" : ""}">
 <header class="site-header">
   <a class="site-title" href="/">${o.bookTitle}</a>
-  <nav>${o.editor ? html`<a href="/edit">Editor home</a> <a href="/">Public site</a>` : html`<a href="/">Contents</a> <a href="/bibliography">Bibliography</a>`}</nav>
+  <nav>${o.editor ? html`<a href="/edit">Editor home</a> <a href="/">Public site</a>` : html`<a href="/">Contents</a> <a href="/bibliography">Bibliography</a>`}
+    ${o.foldDrafts ? html`<label class="show-drafts-toggle"><input type="checkbox" id="show-drafts"> Show drafts</label>` : ""}
+  </nav>
 </header>
 <main class="${o.editor ? "wide" : ""}">
 ${o.body}

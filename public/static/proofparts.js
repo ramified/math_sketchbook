@@ -64,9 +64,9 @@
     show(body, null);
 
     // Statement labels (i), (ii), ... jump to the matching part.
-    const article = body.closest("article.result");
-    if (!article) return;
-    article.querySelectorAll(":scope > .statement li.labeled > .item-label").forEach((lab) => {
+    const result = body.parentElement.parentElement;
+    if (!result?.matches("article.result, .draft-result")) return;
+    result.querySelectorAll(":scope > .statement li.labeled > .item-label").forEach((lab) => {
       const l = lab.textContent.trim();
       if (!labels.includes(l) || lab.dataset.partLink) return;
       lab.dataset.partLink = "1";

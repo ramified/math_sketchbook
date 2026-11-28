@@ -1,23 +1,15 @@
 import { html, raw, type SafeHtml } from "../html.ts";
-import { type Ctx, type Entry, titleHtml, statementHtml, proofHtml, introHtml, fillRefs } from "../book.ts";
-import { STATUS_BADGES, type ProofRow, type ResultRow, type SectionRow } from "../types.ts";
-import { parseBibliography, renderTex } from "../latex.ts";
+import { type Ctx, type Entry, titleHtml, statementHtml, proofHtml, introHtml, readerHtml } from "../book.ts";
+import type { ProofRow, ResultRow, SectionRow } from "../types.ts";
+import { parseBibliography, renderTex, stripDraftNotes } from "../latex.ts";
 import { layout } from "./layout.ts";
 
 function page(ctx: Ctx, title: string, body: SafeHtml): string {
   const bookTitle = ctx.settings.book_title ?? "Notes";
-  return layout({ title: title ? `${title} — ${bookTitle}` : bookTitle, bookTitle, body });
-}
-
-export function badge(status: ProofRow["status"]): SafeHtml {
-  return html`<span class="badge badge-${status}">${STATUS_BADGES[status] ?? status}</span>`;
-}
-
-function provenance(p: ProofRow): SafeHtml {
-  const bits: string[] = [];
-  if (p.generated_by !== "human") bits.push(`written by ${p.generated_by === "gpt" ? "GPT" : "Claude"}`);
-  if (p.reviewed_by) bits.push(`reviewed by ${p.reviewed_by}`);
-  return bits.length ? html`<span class="provenance">${bits.join(" · ")}</span>` : html``;
+  return layout({
+    title: title ? `${stripDraftNotes(title)} — ${bookTitle}` : bookTitle, bookTitle, body,
+    foldDrafts: ctx.settings.fold_drafts === "1",
+  });
 }
 
 export function entryHeading(ctx: Ctx, e: Entry): SafeHtml {
@@ -25,43 +17,56 @@ export function entryHeading(ctx: Ctx, e: Entry): SafeHtml {
   return html`<span class="result-label">${e.label}</span>${t ? html` <span class="result-title">(${raw(t)})</span>` : ""}`;
 }
 
-/** One result with its statement and proofs. Proofs are collapsed unless `proofsCollapsed: false` (the result's own page). */
-export async function resultBlock(ctx: Ctx, r: ResultRow, proofs: ProofRow[], opts: { proofsCollapsed?: boolean; headingLink?: boolean } = {}): Promise<SafeHtml> {
+/** One result with its statement and proofs, in a section, on its own page, or in a knowl. */
+export async function resultBlock(ctx: Ctx, r: ResultRow, proofs: ProofRow[], place: "section" | "page" | "knowl" = "section"): Promise<SafeHtml> {
   const e = ctx.book.byTag.get(r.tag);
   if (!e) return html``;
   const statement = await statementHtml(ctx, r);
+  const fold = ctx.settings.fold_drafts === "1";
+  const draft = fold && r.understanding === "unclear";
+  const sectionFold = fold && place === "section";
   const proofParts: SafeHtml[] = [];
   let i = 0;
   for (const p of proofs) {
     i++;
     const label = proofs.length > 1 ? `Proof ${i}` : "Proof";
     const body = await proofHtml(ctx, p);
-    const head = html`<span class="proof-label">${label}.</span> ${badge(p.status)} ${provenance(p)}`;
+    const draftProof = fold && p.understanding === "unclear";
+    const head = html`<span class="proof-label">${label}${draftProof ? " (draft)" : ""}.</span>`;
+    const content = html`<div class="proof-body">${raw(body)}<span class="qed" aria-label="end of proof">∎</span></div>`;
     proofParts.push(
-      opts.proofsCollapsed ?? true
-        ? html`<details class="proof"><summary>${head}</summary><div class="proof-body">${raw(body)}<span class="qed" aria-label="end of proof">∎</span></div></details>`
-        : html`<section class="proof"><div class="proof-head">${head}</div><div class="proof-body">${raw(body)}<span class="qed" aria-label="end of proof">∎</span></div></section>`,
+      draftProof || place !== "page"
+        ? html`<details class="proof${draftProof ? " draft-proof" : ""}"><summary>${head}</summary>${content}</details>`
+        : html`<section class="proof"><div class="proof-head">${head}</div>${content}</section>`,
     );
   }
   const heading = entryHeading(ctx, e);
-  return html`<article class="result type-${r.type}"${opts.headingLink === false ? "" : raw(` id="${r.tag}"`)} data-tag="${r.tag}">
-  <header class="result-head">
-    ${opts.headingLink === false ? heading : html`<a class="result-link" href="/tag/${r.tag}">${heading}</a>`}
+  const headingLabel = sectionFold
+    ? html`<span class="result-heading">${heading}</span>`
+    : place === "knowl" ? heading : html`<a class="result-link" href="/tag/${r.tag}">${heading}</a>`;
+  const headingContent = html`
+    ${headingLabel}
     <a class="tag-link" href="/tag/${r.tag}" title="Permanent link">${r.tag}</a>
-  </header>
-  <div class="statement">${raw(statement)}</div>
-  ${proofParts}
+  `;
+  const content = html`<div class="statement">${raw(statement)}</div>${proofParts}`;
+  return html`<article class="result type-${r.type}${sectionFold && draft ? " draft-hidden" : ""}"${place === "knowl" ? "" : html` id="${r.tag}"`} data-tag="${r.tag}">
+  ${sectionFold
+    ? html`<details class="draft-result"><summary class="result-head">${headingContent}${draft ? html`<span class="draft-marker">draft</span>` : ""}</summary>${content}</details>`
+    : html`<header class="result-head">${headingContent}</header>
+      ${draft ? html`<p class="draft-banner">This is still a rough draft and may not read smoothly.</p>` : ""}
+      ${content}`}
 </article>`;
 }
 
 export function homePage(ctx: Ctx): string {
+  const fold = ctx.settings.fold_drafts === "1";
   const toc = ctx.book.chapters.map(
     (ch) => html`<li class="toc-chapter">
   <a href="/tag/${ch.tag}"><span class="num">${ch.number}</span> ${raw(titleHtml(ctx, ch.title))}</a>
   <ol>${(ctx.book.sectionsOf.get(ch.id) ?? []).map(
     (s) => html`<li class="toc-section"><a href="/tag/${s.tag}"><span class="num">${s.number}</span> ${raw(titleHtml(ctx, s.title))}</a>
       <ul class="toc-results">${(ctx.book.resultsOf.get(s.id) ?? []).map(
-        (r) => html`<li><a href="/tag/${s.tag}#${r.tag}">${entryHeading(ctx, r)}</a></li>`,
+        (r) => html`<li${fold && r.understanding === "unclear" ? html` class="draft-hidden"` : ""}><a href="/tag/${s.tag}#${r.tag}">${entryHeading(ctx, r)}</a></li>`,
       )}</ul></li>`,
   )}</ol></li>`,
   );
@@ -82,13 +87,30 @@ function breadcrumb(ctx: Ctx, e: Entry): SafeHtml {
   return html`<nav class="breadcrumb">${parts.map((p, i) => (i ? html` › ${p}` : p))}</nav>`;
 }
 
+function pageIntroAndResults(ctx: Ctx, intro: string, results: SafeHtml[] = []): SafeHtml {
+  const introBody = html`<div class="intro">${raw(intro)}</div>`;
+  const hasIntro = intro.trim() !== "";
+  if (ctx.settings.fold_drafts !== "1" || (!hasIntro && !results.length)) {
+    return html`${introBody}
+${results}`;
+  }
+  return html`<div id="page-folds">
+  <div class="fold-controls">
+    <button type="button" data-fold-action="expand">Expand all</button>
+    <button type="button" data-fold-action="collapse">Collapse all</button>
+  </div>
+  ${hasIntro ? html`<details class="intro-fold"><summary>Introduction</summary>${introBody}</details>` : ""}
+  ${results}
+</div>`;
+}
+
 export async function chapterPage(ctx: Ctx, ch: SectionRow): Promise<string> {
   const e = ctx.book.byTag.get(ch.tag)!;
   const intro = await introHtml(ctx, ch);
   const secs = ctx.book.sectionsOf.get(ch.id) ?? [];
   return page(ctx, e.label, html`${breadcrumb(ctx, e)}
 <h1><span class="num">${e.label}</span> ${raw(titleHtml(ctx, ch.title))} <a class="tag-link" href="/tag/${ch.tag}">${ch.tag}</a></h1>
-<div class="intro">${raw(intro)}</div>
+${pageIntroAndResults(ctx, intro)}
 <ol class="section-list">${secs.map((s) => html`<li><a href="/tag/${s.tag}"><span class="num">${s.number}</span> ${raw(titleHtml(ctx, s.title))}</a></li>`)}</ol>`);
 }
 
@@ -104,8 +126,7 @@ export async function sectionPage(ctx: Ctx, s: SectionRow, results: ResultRow[],
   const next = all[idx + 1];
   return page(ctx, `${e.number} ${s.title}`, html`${breadcrumb(ctx, e)}
 <h1><span class="num">${e.number}</span> ${raw(titleHtml(ctx, s.title))} <a class="tag-link" href="/tag/${s.tag}">${s.tag}</a></h1>
-<div class="intro">${raw(intro)}</div>
-${blocks}
+${pageIntroAndResults(ctx, intro, blocks)}
 <nav class="prevnext">
   ${prev ? html`<a href="/tag/${prev.tag}">← ${prev.number} ${raw(titleHtml(ctx, prev.title))}</a>` : html`<span></span>`}
   ${next ? html`<a href="/tag/${next.tag}">${next.number} ${raw(titleHtml(ctx, next.title))} →</a>` : html`<span></span>`}
@@ -117,6 +138,7 @@ export async function resultPage(
 ): Promise<string> {
   const e = ctx.book.byTag.get(r.tag)!;
   const section = ctx.book.sectionById.get(r.section_id);
+  const inContext = section && e.listed && !(ctx.settings.fold_drafts === "1" && r.understanding === "unclear");
   const list = (tags: string[]) =>
     tags.length
       ? html`<ul class="dep-list">${tags.map((t) => {
@@ -125,10 +147,10 @@ export async function resultPage(
         })}</ul>`
       : html`<p class="muted">None.</p>`;
   return page(ctx, e.listed || !e.title ? e.label : `${e.label}: ${e.title}`, html`${breadcrumb(ctx, e)}
-${await resultBlock(ctx, r, proofs, { proofsCollapsed: false })}
+${await resultBlock(ctx, r, proofs, "page")}
 <div class="result-meta">
   <p>Permanent link: <code>/tag/${r.tag}</code>${aliases.length ? html` · also <code>${aliases.join(", ")}</code>` : ""}
-   · ${section && e.listed ? html`<a href="/tag/${section.tag}#${r.tag}">view in context</a> · ` : ""}<a href="/edit/result/${r.tag}">edit</a></p>
+   · ${inContext ? html`<a href="/tag/${section.tag}#${r.tag}">view in context</a> · ` : ""}<a href="/edit/result/${r.tag}">edit</a></p>
   <div class="deps"><div><h2>Uses</h2>${list(usesTags)}</div><div><h2>Used by</h2>${list(usedByTags)}</div></div>
 </div>`);
 }
@@ -142,14 +164,14 @@ export function notFoundPage(ctx: Ctx, what: string): string {
 }
 
 export function bibliographyPage(ctx: Ctx): string {
-  const items = parseBibliography(ctx.settings.bibliography ?? "");
+  const items = parseBibliography(stripDraftNotes(ctx.settings.bibliography ?? ""));
   return page(ctx, "Bibliography", html`<h1>Bibliography</h1>
-<dl class="bibliography">${items.map((it) => html`<dt id="cite-${it.key}">[${it.key}]</dt><dd>${raw(fillRefs(renderTex(it.tex, ctx.macros).html, ctx.book))}</dd>`)}</dl>`);
+<dl class="bibliography">${items.map((it) => html`<dt id="cite-${it.key}">[${it.key}]</dt><dd>${raw(readerHtml(ctx, renderTex(it.tex, ctx.macros).html))}</dd>`)}</dl>`);
 }
 
 /** HTML fragment returned to the knowl script. */
 export async function knowlResult(ctx: Ctx, r: ResultRow, proofs: ProofRow[]): Promise<string> {
-  return (await resultBlock(ctx, r, proofs, { proofsCollapsed: true, headingLink: false })).value;
+  return (await resultBlock(ctx, r, proofs, "knowl")).value;
 }
 
 export async function knowlSection(ctx: Ctx, s: SectionRow): Promise<string> {

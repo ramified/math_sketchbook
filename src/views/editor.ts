@@ -1,9 +1,13 @@
 import { html, raw, type SafeHtml } from "../html.ts";
 import { type Ctx, titleHtml, typeName } from "../book.ts";
-import { RESULT_TYPES, PROOF_STATUSES, GENERATORS, STATUS_BADGES, type ProofRow, type ResultRow, type SectionRow, type User } from "../types.ts";
+import {
+  RESULT_TYPES, PROOF_STATUSES, GENERATORS, STATUS_BADGES, UNDERSTANDING_LEVELS, UNDERSTANDING_LABELS,
+  type ProofRow, type ResultRow, type SectionRow, type UnderstandingLevel, type User,
+} from "../types.ts";
 import { layout } from "./layout.ts";
 
 const resultTypeOptions = RESULT_TYPES.map((type) => ({ value: type, label: typeName(type) }));
+const understandingOptions = UNDERSTANDING_LEVELS.map((value) => ({ value, label: UNDERSTANDING_LABELS[value] }));
 
 function page(ctx: Ctx, title: string, body: SafeHtml): string {
   return layout({ title: `${title} — editor`, bookTitle: ctx.settings.book_title ?? "Notes", body, editor: true });
@@ -28,15 +32,33 @@ function texPair(name: string, value: string, rows = 8, label = ""): SafeHtml {
 </div>`;
 }
 
+function markAll(tag: string, kind: "chapter" | "section"): SafeHtml {
+  return html`<select class="mark-understanding" data-container="${tag}" data-kind="${kind}" aria-label="Mark all results in this ${kind}">
+    <option value="">Mark all results in this ${kind}…</option>${options(understandingOptions, undefined)}
+  </select>`;
+}
+
 export function dashboardPage(ctx: Ctx, user: User): string {
   const typeOpts = options(resultTypeOptions, "lemma");
-  const chapters = ctx.book.chapters.map(
-    (ch) => html`<li class="toc-chapter">
+  const chapters = ctx.book.chapters.map((ch) => {
+    const sections = ctx.book.sectionsOf.get(ch.id) ?? [];
+    const counts = { clear: 0, partial: 0, unclear: 0 };
+    for (const s of sections) {
+      for (const r of ctx.book.resultsOf.get(s.id) ?? []) counts[r.understanding ?? "unclear"]++;
+    }
+    return html`<li class="toc-chapter">
   <span class="num">${ch.number}</span> ${raw(titleHtml(ctx, ch.title))} <a class="edit-link" href="/edit/section/${ch.tag}">edit</a>
-  <ol>${(ctx.book.sectionsOf.get(ch.id) ?? []).map(
+  <div class="understanding-controls">
+    <span class="understanding-counts">understood <span data-count="clear">${counts.clear}</span> · partly <span data-count="partial">${counts.partial}</span> · not yet <span data-count="unclear">${counts.unclear}</span></span>
+    ${markAll(ch.tag, "chapter")}
+    <span class="understanding-status" role="status"></span>
+  </div>
+  <ol>${sections.map(
     (s) => html`<li class="toc-section"><span class="num">${s.number}</span> ${raw(titleHtml(ctx, s.title))} <a class="edit-link" href="/edit/section/${s.tag}">edit</a>
+    ${markAll(s.tag, "section")}
     <ul class="toc-results">${(ctx.book.resultsOf.get(s.id) ?? []).map(
-      (r) => html`<li><a href="/edit/result/${r.tag}">${r.label}${r.title ? html` (${raw(titleHtml(ctx, r.title))})` : ""}</a> <code>${r.tag}</code>${r.hidden ? html` <em>(hidden)</em>` : ""}${r.listed ? "" : html` <em>(unlisted)</em>`}</li>`,
+      (r) => html`<li><a href="/edit/result/${r.tag}">${r.label}${r.title ? html` (${raw(titleHtml(ctx, r.title))})` : ""}</a> <code>${r.tag}</code>${r.hidden ? html` <em>(hidden)</em>` : ""}${r.listed ? "" : html` <em>(unlisted)</em>`}
+        <select class="mark-understanding" data-result="${r.tag}" data-saved="${r.understanding ?? "unclear"}" aria-label="Understanding for ${r.label} (${r.tag})">${options(understandingOptions, r.understanding ?? "unclear")}</select></li>`,
     )}</ul>
     <form class="inline-form" data-create="/api/edit/new-result">
       <input type="hidden" name="section_id" value="${s.id}">
@@ -46,12 +68,12 @@ export function dashboardPage(ctx: Ctx, user: User): string {
   <form class="inline-form" data-create="/api/edit/new-section">
     <input type="hidden" name="kind" value="section"><input type="hidden" name="parent_id" value="${ch.id}">
     <input name="title" placeholder="New section title" aria-label="New section title"> <button type="submit">+ New section</button>
-  </form></li>`,
-  );
+  </form></li>`;
+  });
   return page(ctx, "Editor", html`<h1>Editor</h1>
-<p>Logged in as <strong>${user.email}</strong> (${user.role}). Saving publishes immediately; every save is kept in the history.</p>
+<p>Logged in as <strong>${user.email}</strong> (${user.role}). Content saves publish immediately and appear in the history.</p>
 <form method="post" action="/logout" class="inline-form"><button type="submit">Log out</button></form>
-<p><a href="/edit/settings">Book title, macros &amp; bibliography</a></p>
+<p><a href="/edit/settings">Book settings</a></p>
 ${ctx.macroError ? html`<p class="warning">Macro file error: ${ctx.macroError}</p>` : ""}
 <nav class="toc edit-toc"><ol>${chapters}</ol></nav>
 <form class="inline-form" data-create="/api/edit/new-section">
@@ -72,17 +94,20 @@ export function resultEditPage(ctx: Ctx, r: ResultRow, proofs: ProofRow[], alias
   const e = ctx.book.byTag.get(r.tag);
   // restore = pre-fill the form from an old revision (nothing is saved until you press Save)
   let type = r.type, title = r.title, statement = r.statement_tex;
+  let restoredUnderstanding: UnderstandingLevel | undefined;
   const proofForms: { p: Partial<ProofRow>; restored?: boolean }[] = proofs.map((p) => ({ p }));
   if (restore?.entity === "result") {
     const s = restore.snapshot;
     type = (s.type as ResultRow["type"]) ?? type;
     title = (s.title as string) ?? title;
     statement = (s.statement_tex as string) ?? statement;
+    restoredUnderstanding = s.understanding as UnderstandingLevel | undefined;
   } else if (restore?.entity === "proof") {
     const s = restore.snapshot as Partial<ProofRow>;
     const restored = {
       body_tex: s.body_tex ?? "", status: s.status ?? "polishing", generated_by: s.generated_by ?? "human",
       generator_detail: s.generator_detail ?? null, reviewed_by: s.reviewed_by ?? null, review_notes: s.review_notes ?? null,
+      ...(s.understanding === undefined ? {} : { understanding: s.understanding }),
     };
     const i = proofForms.findIndex((f) => f.p.id === restore.proofId);
     if (i >= 0) proofForms[i] = { p: { ...proofForms[i].p, ...restored }, restored: true };
@@ -107,8 +132,9 @@ ${jsonScript("sections-data", sections)}
     <label>Title <input name="title" value="${title}" placeholder="optional, LaTeX allowed"></label>
     <label>Section <select name="section_id" data-current="${r.section_id}">${options(sections.map((s) => ({ value: s.id, label: s.label })), r.section_id)}</select></label>
     <label>Position <select name="place_after" data-self="${r.id}"><option value="keep">(keep current position)</option></select></label>
-    <label class="span2 checkbox"><input type="checkbox" name="listed"${r.listed ? raw(" checked") : ""}> Listed in its section and numbered
+    <label class="checkbox"><input type="checkbox" name="listed"${r.listed ? raw(" checked") : ""}> Listed in its section and numbered
       <small>Untick for a small definition that readers reach only by clicking a link, e.g. <code>\\hyperref[TAG]{Dirichlet character}</code>.</small></label>
+    <label>Understanding <select name="understanding" data-current="${r.understanding}"${restoredUnderstanding ? raw(" data-restore") : ""}>${options(understandingOptions, restoredUnderstanding ?? r.understanding)}</select></label>
     <label class="span2">Readable aliases <input name="aliases" value="${aliases.join(", ")}" placeholder="e.g. dirichlet-orthogonality (comma separated)">
       <small>Write <code>\\ref{alias}</code> anywhere; on save it is replaced by <code>\\ref{TAG}</code>. To link your own words, write <code>\\hyperref[alias]{words}</code>.</small></label>
   </div>
@@ -130,6 +156,7 @@ function proofFieldset(p: Partial<ProofRow>, restored = false): SafeHtml {
   <legend>Proof ${p.id ? html`<small>#${p.id}</small>` : html`<small>(new)</small>`}</legend>
   <div class="meta-grid">
     <label>Status <select name="status">${options(PROOF_STATUSES.map((s) => ({ value: s, label: STATUS_BADGES[s] })), p.status)}</select></label>
+    <label>Understanding <select name="understanding">${options(understandingOptions, p.understanding ?? "unclear")}</select></label>
     <label>Written by <select name="generated_by">${options(GENERATORS.map((g) => ({ value: g, label: g })), p.generated_by)}</select></label>
     <label>Generator detail <input name="generator_detail" value="${p.generator_detail ?? ""}" placeholder="e.g. model name"></label>
     <label>Reviewed by <input name="reviewed_by" value="${p.reviewed_by ?? ""}"></label>
@@ -178,6 +205,7 @@ export function settingsPage(ctx: Ctx, rows: { key: string; value: string; revis
 </form>`;
   return page(ctx, "Settings", html`<p class="breadcrumb"><a href="/edit">Editor</a> › Settings</p>
 ${form("book_title", "Book title", html`<input name="value" value="${get("book_title").value}">`)}
+${form("fold_drafts", "Draft folding", html`<label><span><input type="checkbox" name="value"${get("fold_drafts").value === "1" ? raw(" checked") : ""}> Fold rough drafts for readers</span></label>`)}
 ${form("macros", "Shared macros", html`<textarea name="value" rows="12" spellcheck="false">${get("macros").value}</textarea>`,
     html`One per line: <code>\\newcommand</code>, <code>\\renewcommand</code>, <code>\\def</code>, <code>\\DeclareMathOperator</code>. Used in all math (KaTeX).`)}
 ${form("bibliography", "Bibliography", html`<textarea name="value" rows="10" spellcheck="false">${get("bibliography").value}</textarea>`,

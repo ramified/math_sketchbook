@@ -9,7 +9,7 @@ import { isTag } from "./tags.ts";
 import * as reader from "./views/reader.ts";
 import * as editor from "./views/editor.ts";
 import {
-  UserError, saveResult, createResult, createSection, saveSection, saveSetting, loadAliasContext, previewTex,
+  UserError, saveResult, createResult, createSection, saveSection, saveSetting, saveUnderstanding, loadAliasContext, previewTex,
 } from "./store.ts";
 
 type AppEnv = { Bindings: Env; Variables: { user: User } };
@@ -273,6 +273,10 @@ app.post("/api/edit/preview", async (c) => {
 app.post("/api/edit/result/:tag", async (c) => {
   const out = await saveResult(c.env.DB, c.get("user").email, c.req.param("tag"), await jsonBody(c));
   return c.json({ ok: true, ...out });
+});
+app.post("/api/edit/understanding", async (c) => {
+  await saveUnderstanding(c.env.DB, await jsonBody(c));
+  return c.json({ ok: true });
 });
 app.post("/api/edit/section/:tag", async (c) => {
   const out = await saveSection(c.env.DB, c.get("user").email, c.req.param("tag"), await jsonBody(c));

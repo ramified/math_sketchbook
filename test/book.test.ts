@@ -20,7 +20,7 @@ test("appendices are numbered independently and follow ordinary chapters", async
   const results = [
     { id: 1, tag: "DRFT", position: 1, visibility: "draft" },
     { id: 2, tag: "LEM1", position: 2, visibility: "published" },
-  ].map((row) => ({ ...row, section_id: 5, type: "lemma", title: "", state: "active", listed: 1 }));
+  ].map((row) => ({ ...row, section_id: 5, type: "lemma", title: "", state: "active", listed: 1, understanding: "partial" }));
   const db = {
     prepare(sql: string) {
       const resultsForQuery = sql.includes("FROM sections") ? sections : results;
@@ -36,5 +36,7 @@ test("appendices are numbered independently and follow ordinary chapters", async
   assert.equal(book.byTag.get("APXA")?.label, "Appendix A");
   assert.deepEqual(book.chapters.flatMap(({ id }) => book.sectionsOf.get(id)!.map(({ number }) => number)), ["1.1", "2.1", "A.1"]);
   assert.equal(book.byTag.get("LEM1")?.number, "A.1.1");
+  assert.equal(book.byTag.get("LEM1")?.understanding, "partial");
+  assert.equal(book.byTag.get("APXS")?.understanding, undefined);
   assert.equal(book.byTag.get("DRFT")?.number, "A.1.?");
 });
